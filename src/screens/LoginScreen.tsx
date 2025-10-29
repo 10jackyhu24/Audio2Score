@@ -9,12 +9,14 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../constants/theme';
 
 export const LoginScreen = () => {
+  const navigation = useNavigation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -112,7 +114,7 @@ export const LoginScreen = () => {
 
           <Button
             title="註冊新帳號"
-            onPress={() => Alert.alert('提示', '註冊功能開發中')}
+            onPress={() => navigation.navigate('Register' as never)}
             variant="outline"
           />
         </View>
