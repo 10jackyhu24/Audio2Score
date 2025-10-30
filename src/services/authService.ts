@@ -1,34 +1,25 @@
-import { User, LoginCredentials, RegisterCredentials } from '../types';
+﻿import { User, LoginCredentials, RegisterCredentials } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // 🌐 ngrok 配置
-// 步驟：
-// 1. 執行 `ngrok http 3000` 
-// 2. 複製 ngrok 提供的 HTTPS URL（例如：https://abc123.ngrok-free.app）
-// 3. 將下面的 NGROK_URL 改成你的 URL
-// 4. 將 USE_NGROK 設為 true
-const NGROK_URL = 'https://71a0a6334101.ngrok-free.app'; // 👈 改成你的 ngrok URL
-const USE_NGROK = true; // 👈 改成 true 來使用 ngrok
+const USE_NGROK = true; // 設為 true 使用 ngrok，false 使用本地網路
+const COMPUTER_IP = '192.168.0.14'; // 本地開發時使用（當 USE_NGROK = false）
 
-// 本地開發配置（當 USE_NGROK = false 時使用）
-const COMPUTER_IP = '192.168.0.14'; // 你的電腦區域網路 IP
+// ngrok URL - 會被 start-all.ps1 自動更新
+const NGROK_URL = 'https://d05811da9a9d.ngrok-free.app';
 
 // 根據平台設定 API URL
 const getApiUrl = () => {
-  // 使用 ngrok（可在任何網路環境使用）
   if (USE_NGROK) {
     console.log('🌐 使用 ngrok 模式');
     return `${NGROK_URL}/api`;
   }
   
-  // 本地開發模式（需要同一網路）
   console.log('🏠 使用本地開發模式');
   if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000/api'; // Android 模擬器
+    return 'http://10.0.2.2:3000/api';
   }
-  
-  // iOS 和其他平台
   return `http://${COMPUTER_IP}:3000/api`;
 };
 
@@ -40,7 +31,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const login = async (credentials: LoginCredentials): Promise<User> => {
   try {
-    // 🔍 調試日誌：顯示 API URL 和請求資料
+    // 🔵 調試日誌：顯示 API URL 和請求內容
     console.log('🔵 [登入] API URL:', API_URL);
     console.log('🔵 [登入] 完整 URL:', `${API_URL}/auth/login`);
     console.log('🔵 [登入] 請求資料:', { email: credentials.email });
@@ -84,13 +75,13 @@ export const login = async (credentials: LoginCredentials): Promise<User> => {
       console.log('❌ [登入] 錯誤類型:', error.name);
       throw error;
     }
-    throw new Error('網路錯誤，請檢查您的連線');
+    throw new Error('網路錯誤，請檢查連線狀態');
   }
 };
 
 export const register = async (credentials: RegisterCredentials): Promise<User> => {
   try {
-    // 🔍 調試日誌：顯示 API URL 和請求資料
+    // 🔵 調試日誌：顯示 API URL 和請求內容
     console.log('🔵 [註冊] API URL:', API_URL);
     console.log('🔵 [註冊] 完整 URL:', `${API_URL}/auth/register`);
     console.log('🔵 [註冊] 請求資料:', { 
@@ -138,7 +129,7 @@ export const register = async (credentials: RegisterCredentials): Promise<User> 
       console.log('❌ [註冊] 錯誤類型:', error.name);
       throw error;
     }
-    throw new Error('網路錯誤，請檢查您的連線');
+    throw new Error('網路錯誤，請檢查連線狀態');
   }
 };
 
