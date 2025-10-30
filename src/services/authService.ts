@@ -2,21 +2,38 @@ import { User, LoginCredentials, RegisterCredentials } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-// 🔧 重要：修改這個 IP 為你的電腦 IP（使用 ipconfig 查看）
+// 🌐 ngrok 配置
+// 步驟：
+// 1. 執行 `ngrok http 3000` 
+// 2. 複製 ngrok 提供的 HTTPS URL（例如：https://abc123.ngrok-free.app）
+// 3. 將下面的 NGROK_URL 改成你的 URL
+// 4. 將 USE_NGROK 設為 true
+const NGROK_URL = 'https://71a0a6334101.ngrok-free.app'; // 👈 改成你的 ngrok URL
+const USE_NGROK = true; // 👈 改成 true 來使用 ngrok
+
+// 本地開發配置（當 USE_NGROK = false 時使用）
 const COMPUTER_IP = '192.168.0.14'; // 你的電腦區域網路 IP
 
 // 根據平台設定 API URL
 const getApiUrl = () => {
+  // 使用 ngrok（可在任何網路環境使用）
+  if (USE_NGROK) {
+    console.log('🌐 使用 ngrok 模式');
+    return `${NGROK_URL}/api`;
+  }
+  
+  // 本地開發模式（需要同一網路）
+  console.log('🏠 使用本地開發模式');
   if (Platform.OS === 'android') {
     return 'http://10.0.2.2:3000/api'; // Android 模擬器
   }
   
   // iOS 和其他平台
-  // 如果是在模擬器中，使用 localhost；實體設備使用電腦 IP
   return `http://${COMPUTER_IP}:3000/api`;
 };
 
 const API_URL = getApiUrl();
+console.log('🔵 最終 API URL:', API_URL);
 
 // 模擬 API 延遲
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
