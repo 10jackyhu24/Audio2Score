@@ -1,0 +1,30 @@
+# FastAPI 核心套件
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# 資料庫相關
+asyncpg==0.29.0
+databases==0.8.0
+
+# 認證與安全
+bcrypt==4.1.1
+PyJWT==2.8.0
+python-multipart==0.0.6
+
+# 環境變數與設定
+python-dotenv==1.0.0
+
+# 資料驗證
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# CORS 與中間件
+python-dateutil==2.8.2
+
+# 生產環境伺服器（選用）
+gunicorn==21.2.0
+
+# 開發工具（選用）
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2

@@ -58,6 +58,7 @@ Stop-ProcessOnPort -Port 8082  # Expo (alternative)
 Stop-ProcessOnPort -Port 19000 # Expo DevTools
 Stop-ProcessOnPort -Port 19001 # Expo DevTools
 Stop-ProcessOnPort -Port 19002 # Expo DevTools
+Stop-ProcessOnPort -Port 5562 # Metro Bundler
 
 Write-Host ""
 
@@ -147,7 +148,7 @@ Write-Host ""
 Write-Host "Verifying ports are free..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
 
-$ports = @(3000, 4040, 8081, 8082)
+$ports = @(3000, 4040, 8081, 8082, 19000, 19001, 19002, 5562)
 $allFree = $true
 
 foreach ($port in $ports) {
