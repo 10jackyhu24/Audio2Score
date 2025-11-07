@@ -5,12 +5,9 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt
 from fastapi import HTTPException, status
 from config import settings
-
-# 密碼加密設定
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -23,7 +20,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         bool: 密碼是否正確
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    # 將字串轉換為 bytes
+    password_bytes = plain_password.encode('utf-8')
+    hash_bytes = hashed_password.encode('utf-8') if isinstance(hashed_password, str) else hashed_password
+    
+    return bcrypt.checkpw(password_bytes, hash_bytes)
 
 def get_password_hash(password: str) -> str:
     """
@@ -35,7 +36,13 @@ def get_password_hash(password: str) -> str:
     Returns:
         str: 加密後的密碼
     """
-    return pwd_context.hash(password)
+    # 將字串轉換為 bytes 並加密
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    
+    # 返回字串格式
+    return hashed.decode('utf-8')
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """
