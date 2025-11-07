@@ -7,7 +7,7 @@ const USE_NGROK = true; // 設為 true 使用 ngrok，false 使用本地網路
 const COMPUTER_IP = '192.168.0.14'; // 本地開發時使用（當 USE_NGROK = false）
 
 // ngrok URL - 會被 start-all.ps1 自動更新
-const NGROK_URL = 'https://48c1a805ad18.ngrok-free.app';
+const NGROK_URL = 'https://081a5a46cc87.ngrok-free.app';
 
 // 根據平台設定 API URL
 const getApiUrl = () => {

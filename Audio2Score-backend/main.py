@@ -9,6 +9,7 @@ from datetime import datetime
 import uvicorn
 import sys
 import os
+from contextlib import asynccontextmanager
 
 # 將當前目錄加入 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -17,11 +18,28 @@ from config import settings
 from database import database, init_db
 from routes import router as auth_router
 
+# Lifespan 事件處理器
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup code
+    print("=" * 50)
+    print("🚀 Audio2Score Backend 啟動中...")
+    print("=" * 50)
+    await database.connect()
+    await init_db()
+    print("✅ 應用程式初始化完成")
+    print("=" * 50)
+    yield
+    # Shutdown code
+    print("🛑 Audio2Score Backend 停止中...")
+    await database.disconnect()
+
 # 建立 FastAPI 應用程式
 app = FastAPI(
     title="Audio2Score API",
     description="Audio2Score 後端 API - Python FastAPI 版本",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS 設定（支援 ngrok 和前端）
@@ -46,25 +64,6 @@ async def log_requests(request: Request, call_next):
     
     response = await call_next(request)
     return response
-
-# 啟動事件
-@app.on_event("startup")
-async def startup_event():
-    """應用程式啟動時執行"""
-    print("=" * 50)
-    print("🚀 Audio2Score Backend 啟動中...")
-    print("=" * 50)
-    await database.connect()
-    await init_db()
-    print("✅ 應用程式初始化完成")
-    print("=" * 50)
-
-# 關閉事件
-@app.on_event("shutdown")
-async def shutdown_event():
-    """應用程式關閉時執行"""
-    print("👋 關閉應用程式...")
-    await database.disconnect()
 
 # 註冊路由
 app.include_router(auth_router)

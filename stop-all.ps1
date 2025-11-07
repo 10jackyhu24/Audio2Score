@@ -26,9 +26,21 @@ function Stop-ProcessOnPort {
                     if ($process) {
                         Write-Host "  Killing process $($process.ProcessName) (PID: $processId) on port $Port" -ForegroundColor Yellow
                         Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                        Start-Sleep -Milliseconds 500
+                    } else {
+                        # Process not found in Get-Process, try taskkill
+                        Write-Host "  Attempting to kill orphaned process (PID: $processId) on port $Port" -ForegroundColor Yellow
+                        taskkill /PID $processId /F 2>$null
+                        Start-Sleep -Milliseconds 500
                     }
                 } catch {
-                    # Process already terminated or inaccessible
+                    # Try alternative method
+                    try {
+                        taskkill /PID $processId /F 2>$null
+                        Start-Sleep -Milliseconds 500
+                    } catch {
+                        # Process already terminated or inaccessible
+                    }
                 }
             } elseif ($processId -eq "0" -or $processId -eq "4") {
                 Write-Host "  Skipping system process (PID: $processId) on port $Port" -ForegroundColor Gray
@@ -63,7 +75,35 @@ if ($ngrokProcesses) {
 
 Write-Host ""
 
-# 3. Kill Node.js processes related to this project
+# 3. Kill Python processes (Backend)
+Write-Host "Stopping Python processes..." -ForegroundColor Yellow
+$pythonProcesses = Get-Process -Name "python*" -ErrorAction SilentlyContinue
+
+if ($pythonProcesses) {
+    foreach ($proc in $pythonProcesses) {
+        try {
+            $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId = $($proc.Id)" -ErrorAction SilentlyContinue).CommandLine
+            
+            # Check if this Python process is related to our project
+            if ($cmdLine -and ($cmdLine -like "*Audio2Score*" -or 
+                               $cmdLine -like "*uvicorn*" -or 
+                               $cmdLine -like "*fastapi*" -or
+                               $cmdLine -like "*main:app*")) {
+                Write-Host "  Killing Python (PID: $($proc.Id))" -ForegroundColor Yellow
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 500
+            }
+        } catch {
+            # Can't access process info, skip it
+        }
+    }
+} else {
+    Write-Host "  No Python processes found" -ForegroundColor Gray
+}
+
+Write-Host ""
+
+# 4. Kill Node.js processes related to this project
 Write-Host "Stopping Node.js processes..." -ForegroundColor Yellow
 $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
 
@@ -103,7 +143,7 @@ if ($nodeProcesses) {
 
 Write-Host ""
 
-# 4. Verify ports are free
+# 5. Verify ports are free
 Write-Host "Verifying ports are free..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
 
@@ -118,8 +158,8 @@ foreach ($port in $ports) {
         $connections | ForEach-Object {
             $parts = $_ -split '\s+' | Where-Object { $_ }
             if ($parts[-1] -match '^\d+$') {
-                $pid = $parts[-1]
-                if ($pid -eq "0" -or $pid -eq "4") {
+                $ProcessID = $parts[-1]
+                if ($ProcessID -eq "0" -or $ProcessID -eq "4") {
                     $isSystemProcess = $true
                 }
             }
