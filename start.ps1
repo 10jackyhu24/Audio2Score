@@ -74,7 +74,7 @@ Start-Process cmd -ArgumentList "/k", $updateCommand
 
 # Terminal 4: Start frontend
 Write-Host "Starting frontend..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$frontendPath`"; npm start"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$frontendPath`"; npx expo start -c --tunnel"
 
 Write-Host "All services started successfully!" -ForegroundColor Green
 Write-Host "Ngrok URL: $fullNgrokUrl" -ForegroundColor Cyan

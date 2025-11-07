@@ -10,6 +10,10 @@ import uvicorn
 import sys
 import os
 from contextlib import asynccontextmanager
+import logging
+
+# 使用 uvicorn 的 logger
+logger = logging.getLogger("uvicorn.error")
 
 # 將當前目錄加入 Python 路徑
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -55,14 +59,28 @@ app.add_middleware(
 # 請求日誌中間件
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    print(f"{datetime.now().isoformat()} - {request.method} {request.url.path}")
-    
+    # 使用 logger 替代 print，確保輸出會顯示在 uvicorn logs
+    client = None
+    try:
+        client = request.client.host if request.client else "unknown"
+    except Exception:
+        client = "unknown"
+
+    logger.info(f"{datetime.now().isoformat()} - {request.method} {request.url.path} - from {client}")
+
     # 記錄來源
     origin = request.headers.get("origin", "無來源")
     if "ngrok" in origin:
-        print(f"🌐 ngrok 請求來自: {origin}")
-    
+        logger.info(f"🌐 ngrok 請求來自: {origin}")
+
     response = await call_next(request)
+
+    # 記錄回應狀態
+    try:
+        logger.info(f"{datetime.now().isoformat()} - Response {response.status_code} for {request.method} {request.url.path}")
+    except Exception:
+        logger.info(f"Response sent for {request.method} {request.url.path}")
+
     return response
 
 # 註冊路由
@@ -137,7 +155,8 @@ if __name__ == "__main__":
     print("=" * 50)
     print("  Audio2Score Backend (Python FastAPI)")
     print("=" * 50)
-    print(f"🚀 伺服器啟動於 http://127.0.0.1:{settings.PORT}")
+    print(f"🚀 伺服器啟動於 http://0.0.0.0:{settings.PORT}")
+    print(f"📝 本地存取: http://127.0.0.1:{settings.PORT}")
     print(f"📝 API 文件: http://127.0.0.1:{settings.PORT}/docs")
     print(f"📝 健康檢查: http://127.0.0.1:{settings.PORT}/health")
     print(f"📝 API 端點:")
@@ -148,7 +167,7 @@ if __name__ == "__main__":
     
     uvicorn.run(
         "main:app",
-        host="127.0.0.1",
+        host="0.0.0.0",  # 改為 0.0.0.0 以支援外部連線（ngrok）
         port=settings.PORT,
         reload=settings.ENVIRONMENT == "development"
     )
