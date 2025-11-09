@@ -5,6 +5,7 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { useAuth } from '../context/AuthContext';
+import TabNavigator from './TabNavigator';
 
 const Stack = createNativeStackNavigator();
 
