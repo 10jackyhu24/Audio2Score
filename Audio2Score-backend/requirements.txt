@@ -10,6 +10,8 @@ databases==0.8.0
 bcrypt==4.1.1
 PyJWT==2.8.0
 python-multipart==0.0.6
+email-validator==2.0.0.post2
+python-jose==3.3.0
 
 # 環境變數與設定
 python-dotenv==1.0.0
