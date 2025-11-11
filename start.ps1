@@ -64,19 +64,34 @@ if (-not $ngrokUrl) {
 $fullNgrokUrl = "https://$ngrokUrl"
 Write-Host "Updating ngrok URL with: $fullNgrokUrl" -ForegroundColor Green
 
-# Terminal 3: Update ngrok URL - 修改 Python 腳本執行方式
-# 使用 timeout 來避免 input() 錯誤
+# Terminal 3: Update ngrok URL in frontend files
+# Using timeout to avoid input() errors
 $updateCommand = @"
 cd /d "$backendPath" && conda activate "$condaEnvPath" && echo $fullNgrokUrl | python update_ngrok_url.py && timeout /t 3
 "@
 
 Start-Process cmd -ArgumentList "/k", $updateCommand
 
-# Terminal 4: Start frontend
+# Terminal 4: Start frontend (without --tunnel since we use ngrok for backend API)
 Write-Host "Starting frontend..." -ForegroundColor Green
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$frontendPath`"; npx expo start -c --tunnel"
 
-Write-Host "All services started successfully!" -ForegroundColor Green
-Write-Host "Ngrok URL: $fullNgrokUrl" -ForegroundColor Cyan
-Write-Host "Please check the status in each terminal window" -ForegroundColor Yellow
-Write-Host "Note: You may need to restart the frontend (Terminal 4) for the changes to take effect" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "=" * 60 -ForegroundColor Green
+Write-Host "✅ All services started successfully!" -ForegroundColor Green
+Write-Host "=" * 60 -ForegroundColor Green
+Write-Host ""
+Write-Host "📱 Frontend (Expo):" -ForegroundColor Cyan
+Write-Host "   - Scan QR Code with Expo Go App" -ForegroundColor White
+Write-Host "   - Or press 'a' to launch Android emulator (optional)" -ForegroundColor White
+Write-Host ""
+Write-Host "🌐 Backend API (via ngrok):" -ForegroundColor Cyan
+Write-Host "   - Ngrok URL: $fullNgrokUrl" -ForegroundColor Yellow
+Write-Host "   - Local URL: http://localhost:3000" -ForegroundColor White
+Write-Host ""
+Write-Host "💡 Important Notes:" -ForegroundColor Magenta
+Write-Host "   1. Frontend runs via Expo Go (mobile) or emulator" -ForegroundColor White
+Write-Host "   2. Frontend connects to backend API via ngrok URL" -ForegroundColor White
+Write-Host "   3. Make sure RecordScreen.tsx NGROK_URL is updated to:" -ForegroundColor White
+Write-Host "      const NGROK_URL = '$fullNgrokUrl';" -ForegroundColor Yellow
+Write-Host ""

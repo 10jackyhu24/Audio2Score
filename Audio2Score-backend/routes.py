@@ -2,7 +2,7 @@
 API 路由 - Audio2Score Backend
 處理使用者註冊、登入等功能
 """
-from fastapi import APIRouter, HTTPException, status, Request, Depends, Header
+from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, File, UploadFile
 from typing import Optional
 from datetime import datetime
 
@@ -239,3 +239,44 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"伺服器錯誤: {str(e)}"
         )
+
+@router.post("/upload", status_code=status.HTTP_200_OK)
+async def upload_file(request: Request, file: UploadFile = File(...)):
+    """
+    處理文件上傳
+    
+    - **file**: 上傳的文件
+    """
+    try:
+        print("=" * 60)
+        print("� [上傳] 收到上傳請求")
+        print(f"🔵 [上傳] 來源 IP: {request.client.host if request.client else '未知'}")
+        print(f"🔵 [上傳] Content-Type: {request.headers.get('content-type', '未知')}")
+        print(f"🔵 [上傳] 檔案名稱: {file.filename}")
+        print(f"🔵 [上傳] 檔案類型: {file.content_type}")
+        print("=" * 60)
+        
+        contents = await file.read()
+        file_size = len(contents)
+        
+        print(f"✅ [上傳] 收到文件: {file.filename}, 大小: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
+        
+        # 這裡可以添加處理文件的邏輯，例如保存到伺服器或進行分析
+        # 例如保存文件:
+        # import os
+        # save_path = f"./uploads/{file.filename}"
+        # os.makedirs("./uploads", exist_ok=True)
+        # with open(save_path, "wb") as f:
+        #     f.write(contents)
+        
+        return {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "size": file_size,
+            "message": "文件上傳成功"
+        }
+    except Exception as e:
+        print(f"❌ [上傳] 錯誤: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"文件處理失敗: {str(e)}")
