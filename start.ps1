@@ -49,7 +49,7 @@ Start-Sleep -Seconds 3
 
 # Terminal 2: Start ngrok
 Write-Host "Starting ngrok..." -ForegroundColor Green
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$projectPath`"; ngrok http 3000"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd `"$projectPath`"; ngrok http 3000 --region=jp"
 
 # Wait for ngrok to start and get URL automatically
 $ngrokUrl = Get-NgrokUrl

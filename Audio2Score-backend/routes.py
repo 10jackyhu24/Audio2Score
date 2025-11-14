@@ -6,8 +6,11 @@ import os
 import uuid
 from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, File, UploadFile
 from typing import Optional
-from datetime import datetime
+import datetime
 from pathlib import Path
+
+# Debug: 檢查 runtime 中的 `datetime` 是否被 shadow（啟動時會印出，測試後請移除）
+print("DEBUG: routes module loaded. datetime ->", datetime, type(datetime), "has timezone:", hasattr(datetime, 'timezone'))
 
 from fastapi.responses import JSONResponse
 
@@ -72,7 +75,7 @@ async def register(user: UserCreate, request: Request):
                 VALUES ($1, $2, $3, $4, $5)
                 RETURNING id, username, email, created_at
                 """,
-                user.username, user.email, password_hash, datetime.utcnow(), datetime.utcnow()
+                user.username, user.email, password_hash, datetime.datetime.utcnow(), datetime.datetime.utcnow()
             )
             
             # 建立 Token
@@ -253,28 +256,40 @@ async def upload_file(file: UploadFile = File(...)):
     處理文件上傳 - 簡化版本
     """
     try:
+        # Request-time debug to check whether `datetime` got shadowed at runtime
         print("🔵 [上傳] 開始處理檔案上傳...")
-        
+        print("REQ-DEBUG datetime ->", datetime, type(datetime), "has timezone:", hasattr(datetime, 'timezone'))
+
         # 基本檢查
         if not file.filename:
             return {"error": "沒有收到檔案"}
-        
+
         # 讀取檔案內容
         contents = await file.read()
         file_size = len(contents)
+        
+        # 儲存上傳的檔案
+        uploads_dir = Path(__file__).resolve().parent / "uploads"
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+        file_path = uploads_dir / file.filename
+        with open(file_path, "wb") as f:
+            f.write(contents)
         
         print(f"✅ [上傳] 收到檔案: {file.filename}, 大小: {file_size} bytes")
         
         # 簡單回應
         return {
-            "status": "success", 
+            "status": "success",
             "message": "檔案接收成功",
             "filename": file.filename,
             "size": file_size,
             "content_type": file.content_type,
-            "upload_time": datetime.now(datetime.timezone.utc).isoformat()
+            "upload_time": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
-        
+
     except Exception as e:
+        # 印出完整 traceback 到 server 日誌，避免只回傳簡短錯誤
+        import traceback
         print(f"❌ [上傳] 錯誤: {str(e)}")
-        return {"error": str(e)}
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e)})
