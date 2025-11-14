@@ -1,63 +1,109 @@
 import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ImageBackground } from 'react-native';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import { useThemeMode } from '../context/ThemeContext';
+import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 
 export const HomeScreen = () => {
   const { user, logout } = useAuth();
+  const { theme } = useThemeMode();
+  const { fontSize } = useFontSize();
+
+  const isDark = theme === 'dark';
+
+  // Scale factor based on font size selection
+  const scale =
+    fontSize === 'small' ? 0.9 :
+    fontSize === 'large' ? 1.2 :
+    1.0;
 
   return (
     <ImageBackground
       source={require('../../assets/background-music.png')}
       style={styles.background}
-      resizeMode="contain"
-      //blurRadius={1}
+      resizeMode="center"
     >
-      <View style={styles.overlay}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>歡迎回來！</Text>
-          <Text style={styles.username}>@{user?.username}</Text>
-          <Text style={styles.email}>{user?.email}</Text>
+      <View style={[
+        styles.overlay,
+        isDark ? styles.overlayDark : styles.overlayLight
+      ]}>
+        {/* Title + user info */}
+        <Text
+          style={[
+            styles.title,
+            {
+              fontSize: FONT_SIZES.xxl * scale,
+              color: isDark ? 'white' : '#111',
+            },
+          ]}
+        >
+          歡迎回來！
+        </Text>
 
-          {/* ─── Introduction ───────────────────────── */}
-          <View style={styles.introContainer}>
-            <Text style={styles.subtitle}>🎵 關於此專案</Text>
-            <Text style={styles.introText}>
-              這個應用程式使用人工智慧將音訊轉換成樂譜。
-              您可以上傳或錄製旋律，系統會分析音高、節奏及音符，
-              並自動生成可視化的樂譜。這項技術結合了深度學習與音訊處理，
-              讓音樂創作與學習更輕鬆。
-            </Text>
-          </View>
+        <Text
+          style={[
+            styles.username,
+            {
+              fontSize: FONT_SIZES.xl * scale,
+              color: COLORS.primary,
+            },
+          ]}
+        >
+          @{user?.username}
+        </Text>
 
-          {/* ─── Why We Do This ─────────────────────── */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>🧠 為什麼我們要做這個？</Text>
-            <Text style={styles.sectionText}>
-              許多音樂學習者與創作者在靈感出現時，往往只有旋律的錄音，
-              而沒有時間將它們轉換成樂譜。
-              本專案的目標是幫助使用者快速將想法變成可視化的譜面，
-              不論是創作、教學或分析，都能節省大量時間。
-              同時也讓人工智慧更貼近音樂教育與創作的實際需求。
-            </Text>
-          </View>
+        <Text
+          style={[
+            styles.email,
+            {
+              fontSize: FONT_SIZES.md * scale,
+              color: isDark ? COLORS.textSecondary : '#444',
+            },
+          ]}
+        >
+          {user?.email}
+        </Text>
 
-          {/* ─── How to Use ─────────────────────────── */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>🪄 如何使用</Text>
-            <Text style={styles.sectionText}>
-              <Text style={styles.step}>步驟 1：</Text> 前往「Record」頁面並上傳或錄製音訊（支援 WAV、MP4、MP3）。{'\n'}
-              <Text style={styles.step}>步驟 2：</Text> 等待系統進行音訊分析，AI 會辨識音高與節奏。{'\n'}
-              <Text style={styles.step}>步驟 3：</Text> 查看轉換結果，預覽生成的樂譜。{'\n'}
-              <Text style={styles.step}>步驟 4：</Text> 可將樂譜儲存或分享，用於學習或創作。
-            </Text>
-          </View>
+        {/* Intro / about project */}
+        <View style={[
+          styles.introContainer,
+          isDark ? styles.introDark : styles.introLight
+        ]}>
+          <Text
+            style={[
+              styles.subtitle,
+              {
+                fontSize: FONT_SIZES.lg * scale,
+                color: '#FFD700',
+              },
+            ]}
+          >
+            🎵 關於此專案
+          </Text>
 
-          <View style={styles.buttonContainer}>
-            <Button title="登出" onPress={logout} variant="outline" />
-          </View>
-        </ScrollView>
+          <Text
+            style={[
+              styles.introText,
+              {
+                fontSize: FONT_SIZES.md * scale,
+                color: isDark ? 'white' : '#222',
+              },
+            ]}
+          >
+            這個應用程式使用人工智慧將音訊轉換成樂譜。
+            您可以上傳或錄製旋律，系統會分析音高、節奏及音符，
+            並自動生成可視化的樂譜。這項技術結合了深度學習與音訊處理，
+            讓音樂創作與學習更輕鬆。
+          </Text>
+        </View>
+
+        {/* TODO: you can add "How to use" / steps section here later, using same font scaling */}
+
+        <View style={styles.buttonContainer}>
+          <Button title="登出" onPress={logout} variant="outline" />
+        </View>
       </View>
     </ImageBackground>
   );
@@ -72,76 +118,46 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.lg,
   },
-  scroll: {
-    alignItems: 'center',
-    paddingBottom: 40,
+  overlayDark: {
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  overlayLight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
   },
   title: {
-    fontSize: FONT_SIZES.xxl,
     fontWeight: 'bold',
-    color: 'white',
     marginBottom: SPACING.md,
-    
-    marginTop: 40, // 👈 move it down ~40 px (adjust as you like)
   },
   username: {
-    fontSize: FONT_SIZES.xl,
-    color: COLORS.primary,
     marginBottom: SPACING.sm,
   },
   email: {
-    fontSize: FONT_SIZES.md,
-    color: COLORS.textSecondary,
     marginBottom: SPACING.lg,
   },
   introContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     borderRadius: 12,
     padding: SPACING.md,
     marginBottom: SPACING.xl,
     width: '90%',
   },
+  introDark: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  introLight: {
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+  },
   subtitle: {
-    fontSize: FONT_SIZES.lg,
     fontWeight: '600',
-    color: '#FFD700',
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
   introText: {
-    fontSize: FONT_SIZES.md,
     lineHeight: 22,
-    color: 'white',
     textAlign: 'center',
-  },
-  sectionContainer: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
-    width: '90%',
-  },
-  sectionTitle: {
-    fontSize: FONT_SIZES.lg,
-    fontWeight: '600',
-    color: '#00BFFF',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
-  },
-  sectionText: {
-    fontSize: FONT_SIZES.md,
-    lineHeight: 22,
-    color: 'white',
-    textAlign: 'left',
-  },
-  step: {
-    fontWeight: 'bold',
-    color: '#FFD700',
   },
   buttonContainer: {
     width: '100%',
