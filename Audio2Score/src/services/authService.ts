@@ -7,7 +7,7 @@ const USE_NGROK = true; // 設為 true 使用 ngrok，false 使用本地網路
 const COMPUTER_IP = '192.168.0.14'; // 本地開發時使用（當 USE_NGROK = false）
 
 // ngrok URL - 會被 start-all.ps1 自動更新
-const NGROK_URL = 'https://65e33d2822b6.ngrok-free.app';
+const NGROK_URL = 'https://a5fc6f23322d.ngrok-free.app';
 
 // 根據平台設定 API URL
 const getApiUrl = () => {
@@ -15,15 +15,10 @@ const getApiUrl = () => {
     console.log('🌐 使用 ngrok 模式');
     return `${NGROK_URL}/api`;
   }
-  
-  console.log('🏠 使用本地開發模式');
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:3000/api';
-  }
   return `http://${COMPUTER_IP}:3000/api`;
 };
 
-const API_URL = getApiUrl();
+export const API_URL = getApiUrl();
 console.log('🔵 最終 API URL:', API_URL);
 
 // 模擬 API 延遲

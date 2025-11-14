@@ -11,6 +11,7 @@ import sys
 import os
 from contextlib import asynccontextmanager
 import logging
+from routes import upload_router
 
 # 使用 uvicorn 的 logger
 logger = logging.getLogger("uvicorn.error")
@@ -85,6 +86,7 @@ async def log_requests(request: Request, call_next):
 
 # 註冊路由
 app.include_router(auth_router)
+app.include_router(upload_router)
 
 # 根路徑
 @app.get("/")

@@ -2,15 +2,20 @@
 API 路由 - Audio2Score Backend
 處理使用者註冊、登入等功能
 """
+import os
+import uuid
 from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, File, UploadFile
 from typing import Optional
 from datetime import datetime
+from pathlib import Path
+
+from fastapi.responses import JSONResponse
 
 from models import UserCreate, UserLogin, UserWithToken, UserResponse
 from auth import get_password_hash, verify_password, create_access_token, verify_token
 from database import database
 
-router = APIRouter(prefix="/api/auth", tags=["認證"])
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserWithToken, status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate, request: Request):
@@ -240,43 +245,36 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
             detail=f"伺服器錯誤: {str(e)}"
         )
 
-@router.post("/upload", status_code=status.HTTP_200_OK)
-async def upload_file(request: Request, file: UploadFile = File(...)):
+# 創建專門處理上傳的路由
+upload_router = APIRouter(prefix="/api", tags=["File Upload"])
+@upload_router.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
     """
-    處理文件上傳
-    
-    - **file**: 上傳的文件
+    處理文件上傳 - 簡化版本
     """
     try:
-        print("=" * 60)
-        print("� [上傳] 收到上傳請求")
-        print(f"🔵 [上傳] 來源 IP: {request.client.host if request.client else '未知'}")
-        print(f"🔵 [上傳] Content-Type: {request.headers.get('content-type', '未知')}")
-        print(f"🔵 [上傳] 檔案名稱: {file.filename}")
-        print(f"🔵 [上傳] 檔案類型: {file.content_type}")
-        print("=" * 60)
+        print("🔵 [上傳] 開始處理檔案上傳...")
         
+        # 基本檢查
+        if not file.filename:
+            return {"error": "沒有收到檔案"}
+        
+        # 讀取檔案內容
         contents = await file.read()
         file_size = len(contents)
         
-        print(f"✅ [上傳] 收到文件: {file.filename}, 大小: {file_size} bytes ({file_size / 1024 / 1024:.2f} MB)")
+        print(f"✅ [上傳] 收到檔案: {file.filename}, 大小: {file_size} bytes")
         
-        # 這裡可以添加處理文件的邏輯，例如保存到伺服器或進行分析
-        # 例如保存文件:
-        # import os
-        # save_path = f"./uploads/{file.filename}"
-        # os.makedirs("./uploads", exist_ok=True)
-        # with open(save_path, "wb") as f:
-        #     f.write(contents)
-        
+        # 簡單回應
         return {
+            "status": "success", 
+            "message": "檔案接收成功",
             "filename": file.filename,
-            "content_type": file.content_type,
             "size": file_size,
-            "message": "文件上傳成功"
+            "content_type": file.content_type,
+            "upload_time": datetime.now(datetime.timezone.utc).isoformat()
         }
+        
     except Exception as e:
         print(f"❌ [上傳] 錯誤: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"文件處理失敗: {str(e)}")
+        return {"error": str(e)}

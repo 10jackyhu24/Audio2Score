@@ -29,10 +29,6 @@ def update_ngrok_url():
             "path": os.path.join(base_path, "Audio2Score", "src", "services", "authService.ts"),
             "name": "authService.ts"
         },
-        {
-            "path": os.path.join(base_path, "Audio2Score", "src", "screens", "RecordScreen.tsx"),
-            "name": "RecordScreen.tsx"
-        }
     ]
     
     success_count = 0
