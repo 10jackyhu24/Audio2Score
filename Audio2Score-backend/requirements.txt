@@ -30,3 +30,13 @@ gunicorn==21.2.0
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
+
+
+# 訓練與音訊處理相關套件
+tensorflow==2.20.0
+numpy==2.3.4
+librosa==0.11.0
+pretty-midi==0.2.11
+MIDIUtil==1.2.1
+mir-eval==0.8.2
+matplotlib==3.10.7

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, 
 from typing import Optional
 import datetime
 from pathlib import Path
+from music_conversion_tool import music_tool
 
 # Debug: 檢查 runtime 中的 `datetime` 是否被 shadow（啟動時會印出，測試後請移除）
 print("DEBUG: routes module loaded. datetime ->", datetime, type(datetime), "has timezone:", hasattr(datetime, 'timezone'))
@@ -276,6 +277,11 @@ async def upload_file(file: UploadFile = File(...)):
             f.write(contents)
         
         print(f"✅ [上傳] 收到檔案: {file.filename}, 大小: {file_size} bytes")
+
+        # print(f"✅ 開始預測處理檔案: {file.filename}")
+
+        # music_tool.generate_midi_from_wav(str(file_path), str(file_path.with_suffix('.mid')))
+
         
         # 簡單回應
         return {

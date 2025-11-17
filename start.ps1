@@ -4,7 +4,7 @@
 $projectPath = "D:\Programing\Artificial_Intelligence\Audio2Score"
 $backendPath = "$projectPath\Audio2Score-backend"
 $frontendPath = "$projectPath\Audio2Score"
-$condaEnvPath = "C:\Anaconda3\envs\Audio2Score"
+$condaEnvPath = "D:\Anaconda3\envs\Audio2Score"
 
 # Function to extract ngrok URL
 function Get-NgrokUrl {
