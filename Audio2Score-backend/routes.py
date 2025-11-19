@@ -278,9 +278,10 @@ async def upload_file(file: UploadFile = File(...)):
         
         print(f"✅ [上傳] 收到檔案: {file.filename}, 大小: {file_size} bytes")
 
-        # print(f"✅ 開始預測處理檔案: {file.filename}")
+        print(f"✅ 開始預測處理檔案: {file.filename}")
 
-        # music_tool.generate_midi_from_wav(str(file_path), str(file_path.with_suffix('.mid')))
+        # music_tool.wav_to_midi(str(file_path), str(file_path.with_suffix('.mid')))
+        music_tool.wav_to_midi(str(file_path), str(uploads_dir))
 
         
         # 簡單回應
