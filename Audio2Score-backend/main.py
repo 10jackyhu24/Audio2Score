@@ -4,13 +4,15 @@ FastAPI 主程式 - Audio2Score Backend
 """
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from datetime import datetime
 import uvicorn
 import sys
 import os
 from contextlib import asynccontextmanager
 import logging
+from pathlib import Path
 from routes import upload_router
 
 # 使用 uvicorn 的 logger
@@ -87,6 +89,13 @@ async def log_requests(request: Request, call_next):
 # 註冊路由
 app.include_router(auth_router)
 app.include_router(upload_router)
+
+# 設置靜態文件服務 - 用於提供 MIDI 文件下載
+uploads_dir = Path(__file__).resolve().parent / "uploads"
+uploads_dir.mkdir(parents=True, exist_ok=True)
+
+# 掛載靜態文件目錄
+app.mount("/api/files", StaticFiles(directory=str(uploads_dir)), name="files")
 
 # 根路徑
 @app.get("/")
