@@ -6,7 +6,9 @@ import {
   TouchableOpacity, 
   StyleSheet, 
   ActivityIndicator,
-  Alert 
+  Alert,
+  PanResponder,
+  GestureResponderEvent
 } from 'react-native';
 import PianoKeyboard from './PianoKeyboard';
 import FallingNotes from './FallingNotes';
@@ -31,8 +33,12 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   const [notes, setNotes] = useState<MIDIData['notes']>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
+  const [keyboardWidth, setKeyboardWidth] = useState<number>(0);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
+  const progressBarRef = useRef<View>(null);
+  const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
 
   // 加載 MIDI 文件
   useEffect(() => {
@@ -156,6 +162,47 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     setCurrentTime(time);
   };
 
+  const handleKeyboardLayout = (width: number): void => {
+    setKeyboardWidth(width);
+  };
+
+  const handleProgressBarPress = (event: GestureResponderEvent): void => {
+    if (duration === 0) return;
+    
+    const { locationX } = event.nativeEvent;
+    const progressPercent = Math.max(0, Math.min(1, locationX / progressBarWidth));
+    const newTime = progressPercent * duration;
+    
+    setCurrentTime(newTime);
+    if (isPlaying) {
+      startTimeRef.current = Date.now() - (newTime * 1000) / speed;
+    }
+  };
+
+  // 創建進度條拖動手勢處理器
+  const progressBarPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (event) => {
+        setIsDragging(true);
+        if (isPlaying) {
+          setIsPlaying(false);
+          if (animationRef.current) {
+            cancelAnimationFrame(animationRef.current);
+          }
+        }
+        handleProgressBarPress(event);
+      },
+      onPanResponderMove: (event) => {
+        handleProgressBarPress(event);
+      },
+      onPanResponderRelease: () => {
+        setIsDragging(false);
+      },
+    })
+  ).current;
+
   // 格式化時間顯示
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -173,6 +220,67 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
         </View>
       )}
 
+      {/* 控制面板 - 移到頂部 */}
+      {showControls && (
+        <>
+          <View style={styles.controlPanel}>
+            <TouchableOpacity 
+              style={[styles.controlButton, isPlaying && styles.pauseButton]}
+              onPress={handlePlayPause}
+              disabled={isLoading}
+            >
+              <Text style={styles.controlText}>
+                {isPlaying ? '⏸️ 暫停' : '▶️ 播放'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.controlButton}
+              onPress={handleReset}
+              disabled={isLoading}
+            >
+              <Text style={styles.controlText}>⏹️ 停止</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.speedControl}>
+              <Text style={styles.speedText}>速度: {speed}x</Text>
+            </View>
+            
+            {/* 時間顯示 */}
+            <Text style={styles.timeText}>
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </Text>
+          </View>
+          
+          {/* 進度條 */}
+          <View 
+            style={styles.progressContainer}
+            onLayout={(event) => setProgressBarWidth(event.nativeEvent.layout.width)}
+          >
+            <View 
+              ref={progressBarRef}
+              style={styles.progressBarBackground}
+              {...progressBarPanResponder.panHandlers}
+            >
+              {/* 已播放部分 */}
+              <View 
+                style={[
+                  styles.progressBarFill, 
+                  { width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }
+                ]} 
+              />
+              {/* 拖動手柄 */}
+              <View 
+                style={[
+                  styles.progressThumb,
+                  { left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }
+                ]}
+              />
+            </View>
+          </View>
+        </>
+      )}
+
       {/* 音符掉落區域 */}
       <View style={styles.fallingArea}>
         <FallingNotes 
@@ -180,47 +288,15 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
           currentTime={currentTime}
           speed={speed}
           onSeek={handleSeek}
+          keyboardWidth={keyboardWidth}
         />
-        
-        {/* 時間顯示 */}
-        <View style={styles.timeOverlay}>
-          <Text style={styles.timeText}>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </Text>
-        </View>
       </View>
-
-      {/* 控制面板 */}
-      {showControls && (
-        <View style={styles.controlPanel}>
-          <TouchableOpacity 
-            style={[styles.controlButton, isPlaying && styles.pauseButton]}
-            onPress={handlePlayPause}
-            disabled={isLoading}
-          >
-            <Text style={styles.controlText}>
-              {isPlaying ? '⏸️ 暫停' : '▶️ 播放'}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={handleReset}
-            disabled={isLoading}
-          >
-            <Text style={styles.controlText}>⏹️ 停止</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.speedControl}>
-            <Text style={styles.speedText}>速度: {speed}x</Text>
-          </View>
-        </View>
-      )}
 
       {/* 鋼琴鍵盤 */}
       <PianoKeyboard 
         onNotePress={handleNotePress}
         activeNotes={activeNotes}
+        onLayout={handleKeyboardLayout}
       />
     </View>
   );
@@ -284,7 +360,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   speedControl: {
-    marginLeft: 'auto',
     paddingHorizontal: 12,
   },
   speedText: {
@@ -292,18 +367,49 @@ const styles = StyleSheet.create({
     color: '#495057',
     fontWeight: '500',
   },
-  timeOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    padding: 8,
-    borderRadius: 6,
-  },
   timeText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
+    marginLeft: 'auto',
+    color: '#495057',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  progressContainer: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#e9ecef',
+    borderBottomWidth: 1,
+    borderBottomColor: '#dee2e6',
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: '#dee2e6',
+    borderRadius: 3,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    backgroundColor: '#007AFF',
+    borderRadius: 3,
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: -5,
+    width: 16,
+    height: 16,
+    backgroundColor: '#007AFF',
+    borderRadius: 8,
+    marginLeft: -8,
+    borderWidth: 2,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });
 

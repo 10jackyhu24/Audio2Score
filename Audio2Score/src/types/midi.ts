@@ -31,9 +31,11 @@ export interface FallingNotesProps {
   currentTime?: number;
   speed?: number;
   onSeek?: (time: number) => void;
+  keyboardWidth?: number;
 }
 
 export interface PianoKeyboardProps {
   onNotePress?: (noteName: string) => void;
   activeNotes?: string[];
+  onLayout?: (width: number) => void;
 }

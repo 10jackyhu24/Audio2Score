@@ -1,108 +1,171 @@
 // utils/AudioManager.ts
-// 注意: 需要安裝 expo-av: npx expo install expo-av
-// 或使用 Web Audio API 作為替代方案
+// 使用 Web Audio API 生成音符聲音
 
-interface Sound {
-  stopAsync: () => Promise<void>;
-  setPositionAsync: (position: number) => Promise<void>;
-  playAsync: () => Promise<void>;
-  unloadAsync: () => Promise<void>;
+interface NoteFrequency {
+  [key: string]: number;
 }
 
+// 定義 Web Audio API 類型（避免 TypeScript 錯誤）
+type AudioContextType = any;
+type GainNodeType = any;
+type OscillatorNodeType = any;
+
 class AudioManager {
-  private sounds: Map<string, Sound>;
+  private audioContext: AudioContextType | null;
+  private gainNode: GainNodeType | null;
+  private activeOscillators: Map<string, OscillatorNodeType>;
   private isInitialized: boolean;
+  private noteFrequencies: NoteFrequency;
 
   constructor() {
-    this.sounds = new Map();
+    this.audioContext = null;
+    this.gainNode = null;
+    this.activeOscillators = new Map();
     this.isInitialized = false;
+    
+    // 定義所有音符的頻率（從C0到C8）
+    this.noteFrequencies = this.generateNoteFrequencies();
+  }
+
+  // 生成所有音符的頻率表
+  private generateNoteFrequencies(): NoteFrequency {
+    const frequencies: NoteFrequency = {};
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    
+    // A4 = 440 Hz 作為參考
+    const A4 = 440;
+    const A4_INDEX = 57; // C0 為 0，A4 為第57個半音
+    
+    for (let octave = 0; octave <= 8; octave++) {
+      for (let i = 0; i < noteNames.length; i++) {
+        const noteName = `${noteNames[i]}${octave}`;
+        const noteIndex = octave * 12 + i;
+        const frequency = A4 * Math.pow(2, (noteIndex - A4_INDEX) / 12);
+        frequencies[noteName] = frequency;
+      }
+    }
+    
+    return frequencies;
   }
 
   async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
     try {
-      // TODO: 設置音頻模式 (需要安裝 expo-av)
-      // await Audio.setAudioModeAsync({
-      //   allowsRecordingIOS: false,
-      //   playsInSilentModeIOS: true,
-      //   staysActiveInBackground: false,
-      //   shouldDuckAndroid: true,
-      // });
+      // 創建 Web Audio Context
+      // @ts-ignore - Web Audio API 可能不在所有環境中可用
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       
-      this.isInitialized = true;
-      console.log('AudioManager 初始化成功');
+      if (AudioContextClass) {
+        this.audioContext = new AudioContextClass();
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.connect(this.audioContext.destination);
+        this.gainNode.gain.value = 0.3; // 設置音量為30%
+        
+        this.isInitialized = true;
+        console.log('AudioManager 初始化成功 (使用 Web Audio API)');
+      } else {
+        console.warn('Web Audio API 不可用');
+      }
     } catch (error) {
       console.error('AudioManager 初始化失敗:', error);
     }
   }
 
-  async loadSounds(): Promise<void> {
-    // 加載鋼琴音色樣本
-    const notes = [
-      'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4',
-      'C5', 'C#5', 'D5', 'D#5', 'E5', 'F5', 'F#5', 'G5', 'G#5', 'A5', 'A#5', 'B5'
-    ];
-
-    // 注意：你需要準備對應的音頻文件並放在 assets 目錄下
-    for (const note of notes) {
-      try {
-        // 示例: 假設音頻文件在 assets/sounds/ 目錄下
-        // const { sound } = await Audio.Sound.createAsync(
-        //   require(`../../assets/sounds/${note}.mp3`)
-        // );
-        // this.sounds.set(note, sound);
-        
-        console.log(`音符 ${note} 準備加載 (需要實際音頻文件)`);
-      } catch (error) {
-        console.error(`加載音符 ${note} 失敗:`, error);
-      }
-    }
-  }
-
-  async playNote(noteName: string): Promise<void> {
+  async playNote(noteName: string, duration: number = 0.5): Promise<void> {
     if (!this.isInitialized) {
       await this.initialize();
     }
 
+    if (!this.audioContext || !this.gainNode) {
+      console.warn('AudioContext 未初始化');
+      return;
+    }
+
     try {
-      const sound = this.sounds.get(noteName);
-      if (sound) {
-        // 停止當前播放並重新開始
-        await sound.stopAsync();
-        await sound.setPositionAsync(0);
-        await sound.playAsync();
-      } else {
-        console.warn(`音符 ${noteName} 未加載`);
-        // 暫時使用系統聲音或其他替代方案
-        this.playSystemBeep();
+      const frequency = this.noteFrequencies[noteName];
+      if (!frequency) {
+        console.warn(`未找到音符頻率: ${noteName}`);
+        return;
       }
+
+      // 如果該音符已經在播放，先停止
+      this.stopNote(noteName);
+
+      // 創建振盪器（音源）
+      const oscillator = this.audioContext.createOscillator();
+      const noteGain = this.audioContext.createGain();
+      
+      oscillator.type = 'sine'; // 使用正弦波（鋼琴音色可以用更複雜的波形）
+      oscillator.frequency.value = frequency;
+      
+      // 連接音頻節點
+      oscillator.connect(noteGain);
+      noteGain.connect(this.gainNode);
+      
+      // 設置音量包絡（ADSR - 簡化版）
+      const now = this.audioContext.currentTime;
+      noteGain.gain.setValueAtTime(0, now);
+      noteGain.gain.linearRampToValueAtTime(0.3, now + 0.01); // Attack
+      noteGain.gain.linearRampToValueAtTime(0.2, now + 0.1); // Decay to Sustain
+      noteGain.gain.linearRampToValueAtTime(0, now + duration); // Release
+      
+      // 開始播放
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+      
+      // 保存到活動振盪器列表
+      this.activeOscillators.set(noteName, oscillator);
+      
+      // 播放結束後清理
+      oscillator.onended = () => {
+        this.activeOscillators.delete(noteName);
+      };
+      
     } catch (error) {
       console.error(`播放音符 ${noteName} 失敗:`, error);
     }
   }
 
+  stopNote(noteName: string): void {
+    const oscillator = this.activeOscillators.get(noteName);
+    if (oscillator) {
+      try {
+        oscillator.stop();
+        oscillator.disconnect();
+        this.activeOscillators.delete(noteName);
+      } catch (error) {
+        // 振盪器可能已經停止
+      }
+    }
+  }
+
   async stopAll(): Promise<void> {
     try {
-      for (const [noteName, sound] of this.sounds.entries()) {
-        await sound.stopAsync();
+      for (const [noteName, oscillator] of this.activeOscillators.entries()) {
+        try {
+          oscillator.stop();
+          oscillator.disconnect();
+        } catch (error) {
+          // 忽略已經停止的振盪器
+        }
       }
+      this.activeOscillators.clear();
     } catch (error) {
       console.error('停止所有音符失敗:', error);
     }
   }
 
-  private playSystemBeep(): void {
-    // 播放系統提示音作為替代
-    console.log('🔔 播放提示音 (替代音符)');
-  }
-
   async cleanup(): Promise<void> {
     try {
-      for (const [noteName, sound] of this.sounds.entries()) {
-        await sound.unloadAsync();
+      await this.stopAll();
+      
+      if (this.audioContext) {
+        await this.audioContext.close();
+        this.audioContext = null;
       }
-      this.sounds.clear();
+      
+      this.gainNode = null;
       this.isInitialized = false;
     } catch (error) {
       console.error('清理 AudioManager 失敗:', error);

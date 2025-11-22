@@ -1,18 +1,24 @@
 // components/PianoKeyboard.tsx
-import React, { useRef } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet, ScrollView, LayoutChangeEvent, Dimensions } from 'react-native';
 import { PianoKeyboardProps } from '../types/midi';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const PianoKeyboard: React.FC<PianoKeyboardProps> = ({ 
   onNotePress, 
-  activeNotes = [] 
+  activeNotes = [],
+  onLayout
 }) => {
   const scrollViewRef = useRef<ScrollView>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(SCREEN_WIDTH);
   
-  // 定義完整的鋼琴鍵盤範圍（A0 到 C8）
-  // 為了更好的顯示，我們使用 A2 到 C7
-  const whiteKeyWidth = 40;
-  const blackKeyWidth = 24;
+  // 定義完整的鋼琴鍵盤範圍 A0 到 C8
+  // A0-C8: 從A0開始(3個白鍵A,B) + 7個完整八度(7*7=49) + C8(1個白鍵) = 52個白鍵
+  const totalWhiteKeys = 52;
+  const whiteKeyWidth = containerWidth / totalWhiteKeys;
+  const blackKeyWidth = whiteKeyWidth * 0.6;
+  const keyHeight = whiteKeyWidth * 4; // 白鍵高度為寬度的4倍，保持比例
   
   const playNote = (noteName: string): void => {
     onNotePress && onNotePress(noteName);
@@ -28,20 +34,74 @@ const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
   };
 
   // 生成完整的鋼琴鍵盤
+  const handleContainerLayout = (event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    if (width > 0 && width !== containerWidth) {
+      setContainerWidth(width);
+      onLayout && onLayout(width);
+    }
+  };
+
   const renderPianoKeys = () => {
     const allWhiteKeys: React.ReactElement[] = [];
     const allBlackKeys: React.ReactElement[] = [];
     
-    // 定義音符序列（從A開始）
-    const noteSequence = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     let whiteKeyIndex = 0;
-    // 從 A0 開始，到 C7 結束
-    const startOctave = 0;
-    const endOctave = 7;
+    
+    // 先渲染 A0 和 B0
+    const octave0Notes = ['A', 'B'];
+    octave0Notes.forEach((note) => {
+      const fullNote = `${note}0`;
+      
+      allWhiteKeys.push(
+        <TouchableOpacity
+          key={`white-${fullNote}`}
+          style={[
+            styles.whiteKey,
+            { width: whiteKeyWidth, height: keyHeight },
+            isNoteActive(fullNote) && styles.activeWhiteKey
+          ]}
+          onPress={() => playNote(fullNote)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.keyLabel, { fontSize: whiteKeyWidth * 0.2 }]}>{note}</Text>
+        </TouchableOpacity>
+      );
+
+      // A0 後面有黑鍵 A#0
+      if (note === 'A') {
+        const blackNote = `${note}#0`;
+        const blackKeyLeft = (whiteKeyIndex + 1) * whiteKeyWidth - blackKeyWidth / 2;
+        
+        allBlackKeys.push(
+          <TouchableOpacity
+            key={`black-${blackNote}`}
+            style={[
+              styles.blackKey,
+              { 
+                left: blackKeyLeft,
+                width: blackKeyWidth,
+                height: keyHeight * 0.6
+              },
+              isNoteActive(blackNote) && styles.activeBlackKey
+            ]}
+            onPress={() => playNote(blackNote)}
+            activeOpacity={0.7}
+          />
+        );
+      }
+
+      whiteKeyIndex++;
+    });
+    
+    // 渲染 C1 到 C8
+    const noteSequence = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+    const startOctave = 1;
+    const endOctave = 8;
     
     for (let octave = startOctave; octave <= endOctave; octave++) {
-      // 如果是最後一個八度，只顯示到 C
-      const notesToRender = (octave === endOctave) ? ['A', 'B', 'C'] : noteSequence;
+      // 如果是最後一個八度（C8），只顯示 C
+      const notesToRender = (octave === endOctave) ? ['C'] : noteSequence;
 
       notesToRender.forEach((note) => {
         const fullNote = `${note}${octave}`;
@@ -52,17 +112,17 @@ const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
             key={`white-${fullNote}`}
             style={[
               styles.whiteKey,
-              { width: whiteKeyWidth },
+              { width: whiteKeyWidth, height: keyHeight },
               isNoteActive(fullNote) && styles.activeWhiteKey
             ]}
             onPress={() => playNote(fullNote)}
             activeOpacity={0.7}
           >
-            <Text style={styles.keyLabel}>{note}</Text>
+            <Text style={[styles.keyLabel, { fontSize: whiteKeyWidth * 0.2 }]}>{note}</Text>
           </TouchableOpacity>
         );
 
-        // 渲染黑鍵（E和B後面沒有黑鍵，最後一個八度只有C所以不需要黑鍵）
+        // 渲染黑鍵（E和B後面沒有黑鍵，C8不需要黑鍵）
         if (hasBlackKey(note) && !(octave === endOctave && note === 'C')) {
           const blackNote = `${note}#${octave}`;
           const blackKeyLeft = (whiteKeyIndex + 1) * whiteKeyWidth - blackKeyWidth / 2;
@@ -74,7 +134,8 @@ const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
                 styles.blackKey,
                 { 
                   left: blackKeyLeft,
-                  width: blackKeyWidth 
+                  width: blackKeyWidth,
+                  height: keyHeight * 0.6
                 },
                 isNoteActive(blackNote) && styles.activeBlackKey
               ]}
@@ -94,54 +155,44 @@ const PianoKeyboard: React.FC<PianoKeyboardProps> = ({
   const { whiteKeys, blackKeys } = renderPianoKeys();
 
   return (
-    <View style={styles.container}>
-      <ScrollView 
-        ref={scrollViewRef}
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <View style={styles.keyboard}>
-          <View style={styles.whiteKeysContainer}>
-            {whiteKeys}
-          </View>
-          <View style={styles.blackKeysContainer}>
-            {blackKeys}
-          </View>
+    <View style={styles.container} onLayout={handleContainerLayout}>
+      <View style={styles.keyboard}>
+        <View style={styles.whiteKeysContainer}>
+          {whiteKeys}
         </View>
-      </ScrollView>
+        <View style={styles.blackKeysContainer}>
+          {blackKeys}
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    height: 150,
     backgroundColor: '#f5f5f5',
     borderTopWidth: 1,
     borderTopColor: '#ddd',
+    width: '100%',
   },
   scrollContent: {
     paddingHorizontal: 10,
   },
   keyboard: {
-    height: '100%',
     position: 'relative',
+    width: '100%',
   },
   whiteKeysContainer: {
     flexDirection: 'row',
-    height: '100%',
   },
   blackKeysContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '60%',
     pointerEvents: 'box-none',
   },
   whiteKey: {
-    height: '100%',
     backgroundColor: 'white',
     borderWidth: 1,
     borderColor: '#333',
@@ -151,7 +202,6 @@ const styles = StyleSheet.create({
   },
   blackKey: {
     position: 'absolute',
-    height: '100%',
     backgroundColor: '#222',
     borderWidth: 1,
     borderColor: '#000',
@@ -167,7 +217,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#66BB6A',
   },
   keyLabel: {
-    fontSize: 10,
     color: '#666',
     fontWeight: '500',
   },
