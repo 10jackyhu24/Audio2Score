@@ -13,6 +13,7 @@ import { FONT_SIZES } from '../constants/theme';
 // ✅ NEW: 引入 MIDIViewer 和類型
 import MIDIViewer from '../components/MIDIViewer';
 import type { MIDIData as MIDIDataType } from '../types/midi';
+import { ProgressBar } from '../components/ProgressBar';
 
 type PickedFile = {
   uri: string;
@@ -34,6 +35,11 @@ export const RecordScreen = () => {
   const [midiData, setMidiData] = useState<MIDIDataType | null>(null);
   const [conversionStatus, setConversionStatus] = useState<'idle' | 'converting' | 'success' | 'error'>('idle');
   const [convertedMidiUrl, setConvertedMidiUrl] = useState<string | null>(null);
+
+  // ✅ NEW: 上傳和轉換進度
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [conversionProgress, setConversionProgress] = useState(0);
+  const [midiLoadProgress, setMidiLoadProgress] = useState(0);
 
   // ✅ NEW: use theme + font scaling
   const { colors } = useTheme();
@@ -104,6 +110,9 @@ export const RecordScreen = () => {
       setMidiData(null);
       setConversionStatus('idle');
       setConvertedMidiUrl(null);
+      setUploadProgress(0);
+      setConversionProgress(0);
+      setMidiLoadProgress(0);
     } catch (e: any) {
       console.error('檔案選擇錯誤:', e);
       Alert.alert('選取檔案失敗', e?.message ?? '請再試一次');
@@ -114,6 +123,7 @@ export const RecordScreen = () => {
   const fetchConvertedMIDI = async (filename: string, midiFilename?: string, username?: string) => {
     try {
       setConversionStatus('converting');
+      setConversionProgress(0);
       
       // 使用後端返回的 MIDI 文件名，或者根據原始文件名生成
       const midiName = midiFilename || `${filename.replace(/\.[^/.]+$/, "")}_basic_pitch.mid`;
@@ -131,6 +141,9 @@ export const RecordScreen = () => {
       
       while (attempts < maxAttempts) {
         try {
+          // 更新進度
+          setConversionProgress(((attempts + 1) / maxAttempts) * 100);
+          
           const token = await getStoredToken();
           const checkResponse = await fetch(midiUrl, { 
             method: 'HEAD',
@@ -191,6 +204,60 @@ export const RecordScreen = () => {
     }
   };
 
+  // Web 平台使用 XMLHttpRequest 追蹤真實上傳進度
+  const uploadWithProgress = (
+    url: string, 
+    formData: FormData, 
+    token: string,
+    onProgress: (progress: number) => void
+  ): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      // 上傳進度
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const progress = e.loaded / e.total;
+          onProgress(progress);
+          console.log(`📤 上傳進度: ${(progress * 100).toFixed(1)}%`);
+        }
+      });
+
+      // 完成
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            console.log('✅ [上傳] 成功:', result);
+
+            Alert.alert(
+              '上傳成功', 
+              `檔案 ${result.original_filename || result.filename} 上傳成功！`
+            );
+            
+            resolve(result);
+          } catch (e) {
+            reject(new Error('解析回應失敗'));
+          }
+        } else {
+          reject(new Error(`上傳失敗 (${xhr.status}): ${xhr.responseText}`));
+        }
+      });
+
+      // 錯誤
+      xhr.addEventListener('error', () => {
+        reject(new Error('網路錯誤'));
+      });
+
+      // 發送請求
+      xhr.open('POST', url);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('Accept', 'application/json');
+      xhr.setRequestHeader('ngrok-skip-browser-warning', 'true');
+      xhr.send(formData);
+    });
+  };
+
   const uploadFile = async () => {
     if (!file) {
       Alert.alert('請先選擇檔案');
@@ -201,6 +268,7 @@ export const RecordScreen = () => {
       setIsUploading(true);
       setMidiData(null);
       setConversionStatus('idle');
+      setUploadProgress(0);
 
       console.log('🔵 [上傳] 開始上傳流程...');
 
@@ -212,6 +280,7 @@ export const RecordScreen = () => {
         return;
       }
       console.log('🔵 [上傳] Token 已取得');
+      setUploadProgress(10);
 
       let fileUri = file.uri;
       if (
@@ -229,12 +298,17 @@ export const RecordScreen = () => {
         size: file.size,
         平台: Platform.OS,
       });
+      setUploadProgress(20);
 
       const formData = new FormData();
+      setUploadProgress(15);
 
       if (Platform.OS === 'web') {
+        // Web: 準備文件並使用 XMLHttpRequest 追蹤進度
         const response = await fetch(fileUri);
         const blob = await response.blob();
+        setUploadProgress(25);
+        
         try {
           const fileForUpload = new File([blob], file.name, {
             type: file.mimeType || 'application/octet-stream',
@@ -243,47 +317,79 @@ export const RecordScreen = () => {
         } catch (e) {
           (formData as any).append('file', blob, file.name);
         }
+        setUploadProgress(30);
+
+        console.log('🔵 [上傳] 使用 XMLHttpRequest 上傳到:', SERVER_UPLOAD_URL);
+        
+        // 使用 XMLHttpRequest 追蹤真實上傳進度
+        const result = await uploadWithProgress(SERVER_UPLOAD_URL, formData, token, (progress) => {
+          // 30% - 95% 用於上傳
+          setUploadProgress(30 + (progress * 65));
+        });
+        
+        setUploadProgress(100);
+        console.log('✅ [上傳] 成功:', result);
+        
+        // 獲取 MIDI 文件
+        if (result.saved_filename || result.filename) {
+          const filename = result.saved_filename || result.filename;
+          await fetchConvertedMIDI(filename, result.midi_filename, result.user);
+        }
+        
       } else {
+        // Mobile: 使用 fetch 並模擬進度
         formData.append('file', {
           uri: fileUri,
           name: file.name,
           type: file.mimeType || 'audio/mpeg',
         } as any);
-      }
+        setUploadProgress(30);
 
-      console.log('🔵 [上傳] 發送請求到:', SERVER_UPLOAD_URL);
+        console.log('🔵 [上傳] 發送請求到:', SERVER_UPLOAD_URL);
 
-      const response = await fetch(SERVER_UPLOAD_URL, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          Authorization: `Bearer ${token}`,  // ✅ 加上 Authorization header
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: formData,
-      });
+        // 模擬上傳進度
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev < 85) return prev + 3;
+            return prev;
+          });
+        }, 150);
 
-      console.log('🔵 [上傳] 回應狀態:', response.status);
+        const response = await fetch(SERVER_UPLOAD_URL, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: formData,
+        });
+        
+        clearInterval(progressInterval);
+        setUploadProgress(90);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log('❌ [上傳] 錯誤回應:', errorText);
-        throw new Error(`上傳失敗 (${response.status}): ${errorText}`);
-      }
+        console.log('🔵 [上傳] 回應狀態:', response.status);
 
-      const result = await response.json();
-      console.log('✅ [上傳] 成功:', result);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.log('❌ [上傳] 錯誤回應:', errorText);
+          throw new Error(`上傳失敗 (${response.status}): ${errorText}`);
+        }
 
-      Alert.alert(
-        '上傳成功', 
-        `檔案 ${result.original_filename || result.filename} 上傳成功！\n${result.midi_filename ? '正在獲取 MIDI...' : '轉換 MIDI 中...'}`
-      );
-      
-      // ✅ NEW: 上傳成功後獲取 MIDI 文件
-      if (result.saved_filename || result.filename) {
-        // 使用後端返回的 MIDI 文件名和使用者名稱
-        const filename = result.saved_filename || result.filename;
-        await fetchConvertedMIDI(filename, result.midi_filename, result.user);
+        const result = await response.json();
+        setUploadProgress(100);
+        console.log('✅ [上傳] 成功:', result);
+
+        Alert.alert(
+          '上傳成功', 
+          `檔案 ${result.original_filename || result.filename} 上傳成功！`
+        );
+        
+        // 獲取 MIDI 文件
+        if (result.saved_filename || result.filename) {
+          const filename = result.saved_filename || result.filename;
+          await fetchConvertedMIDI(filename, result.midi_filename, result.user);
+        }
       }
       
     } catch (error: any) {
@@ -304,6 +410,20 @@ export const RecordScreen = () => {
             <Text style={[styles.statusText, { color: colors.primary }]}>
               🎵 正在轉換為 MIDI...
             </Text>
+            <ProgressBar 
+              progress={conversionProgress} 
+              label="MIDI 轉換進度"
+              showPercentage={true}
+              color={colors.primary}
+            />
+            {midiLoadProgress > 0 && midiLoadProgress < 100 && (
+              <ProgressBar 
+                progress={midiLoadProgress} 
+                label="MIDI 加載進度"
+                showPercentage={true}
+                color="#4CAF50"
+              />
+            )}
           </View>
         );
       case 'success':
@@ -312,6 +432,12 @@ export const RecordScreen = () => {
             <Text style={[styles.statusText, { color: '#4CAF50' }]}>
               ✅ MIDI 轉換完成！
             </Text>
+            <ProgressBar 
+              progress={100} 
+              label="完成"
+              showPercentage={false}
+              color="#4CAF50"
+            />
           </View>
         );
       case 'error':
@@ -426,6 +552,18 @@ export const RecordScreen = () => {
           disabled={!file || isUploading}
         />
       </View>
+
+      {/* ✅ NEW: 上傳進度條 */}
+      {isUploading && uploadProgress > 0 && uploadProgress < 100 && (
+        <View style={[styles.statusContainer, { backgroundColor: colors.card }]}>
+          <ProgressBar 
+            progress={uploadProgress} 
+            label="上傳進度"
+            showPercentage={true}
+            color={colors.primary}
+          />
+        </View>
+      )}
 
       {/* ✅ NEW: 轉換狀態顯示 */}
       {renderConversionStatus()}
