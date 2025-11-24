@@ -93,20 +93,24 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     
     setCurrentTime(adjustedTime);
 
-    // 檢測當前應該播放的音符
+    // 檢測當前應該播放的音符（增加容錯範圍以提前觸發）
+    const triggerWindow = 0.05; // 50ms 容錯窗口
     const currentActiveNotes = notes
       .filter(note => 
-        adjustedTime >= note.startTime && 
-        adjustedTime <= note.startTime + note.duration
+        adjustedTime >= note.startTime - triggerWindow && 
+        adjustedTime <= note.startTime + note.duration + triggerWindow
       )
       .map(note => note.note);
 
     setActiveNotes(currentActiveNotes);
 
-    // 播放新激活的音符
-    currentActiveNotes.forEach(note => {
-      if (!activeNotes.includes(note)) {
-        AudioManager.playNote(note);
+    // 播放新激活的音符（只在音符剛開始時觸發）
+    notes.forEach(note => {
+      const justStarted = adjustedTime >= note.startTime - triggerWindow && 
+                         adjustedTime < note.startTime + 0.1 &&
+                         !activeNotes.includes(note.note);
+      if (justStarted) {
+        AudioManager.playNote(note.note, note.duration);
       }
     });
 
