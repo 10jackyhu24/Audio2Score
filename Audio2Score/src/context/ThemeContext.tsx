@@ -6,7 +6,9 @@ import React, {
 } from 'react';
 import { COLORS } from '../constants/theme';
 
-type ThemeColors = typeof COLORS;
+type ThemeColors = typeof COLORS & {
+  card: string; // 👈 add card color to types
+};
 
 type ThemeContextType = {
   colors: ThemeColors;
@@ -16,13 +18,30 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// You can tweak these if you want a different dark theme
-const lightColors: ThemeColors = COLORS;
+/* ======================
+   LIGHT MODE COLORS
+   ====================== */
+const lightColors: ThemeColors = {
+  ...COLORS,
+  background: '#FFFFFF',
+  text: '#222222',
+  textSecondary: '#555555',
+
+  // ⭐ soft light grey card background
+  card: '#F2F2F7', // iOS style light card
+};
+
+/* ======================
+   DARK MODE COLORS
+   ====================== */
 const darkColors: ThemeColors = {
   ...COLORS,
   background: '#050816',
-  text: '#f5f5f5',
-  textSecondary: '#cccccc',
+  text: '#FFFFFF',
+  textSecondary: '#CCCCCC',
+
+  // ⭐ soft grey card — not WHITE for dark mode
+  card: '#1C1C28',
 };
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {

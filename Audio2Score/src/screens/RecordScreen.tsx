@@ -476,7 +476,7 @@ export const RecordScreen = () => {
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.card ?? 'rgba(0,0,0,0.04)' },
+          { backgroundColor: colors.card ?? 'rgba(38, 34, 34, 0.04)' },
         ]}
       >
         {file ? (
@@ -485,7 +485,7 @@ export const RecordScreen = () => {
               style={[
                 styles.label,
                 {
-                  color: colors.text,
+                  color: colors.textSecondary,
                   fontSize: FONT_SIZES.md * scale,
                 },
               ]}
@@ -501,7 +501,7 @@ export const RecordScreen = () => {
                 style={[
                   styles.label,
                   {
-                    color: colors.text,
+                    color: colors.textSecondary,
                     fontSize: FONT_SIZES.md * scale,
                   },
                 ]}
@@ -517,7 +517,7 @@ export const RecordScreen = () => {
               style={[
                 styles.label,
                 {
-                  color: colors.text,
+                  color: colors.textSecondary ,
                   fontSize: FONT_SIZES.md * scale,
                 },
               ]}
