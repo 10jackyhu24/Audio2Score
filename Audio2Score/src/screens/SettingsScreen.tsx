@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFontSize } from '../context/FontSizeContext';
@@ -25,38 +26,9 @@ export const SettingsScreen = () => {
   ];
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: colors.background }]}
-      contentContainerStyle={styles.content}
-    >
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        <Text
-          style={[
-            styles.headerTitle,
-            {
-              color: isDarkMode ? 'white' : '#222',
-              fontSize: FONT_SIZES.xl * scale,
-            },
-          ]}
-        >
-          設定
-        </Text>
-        <Text
-          style={[
-            styles.headerSubtitle,
-            {
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
-              fontSize: 12 * scale,
-            },
-          ]}
-        >
-          自訂外觀、文字大小與帳號相關設定
-        </Text>
-      </View>
-
-      {/* 外觀 */}
-      <View
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <Text
         style={[
           styles.card,
           { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
@@ -220,31 +192,21 @@ export const SettingsScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
-
-      <Text
-        style={[
-          styles.footerNote,
-          {
-            color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
-            fontSize: 11 * scale,
-          },
-        ]}
-      >
-        變更外觀與文字大小只會影響此應用程式。
-      </Text>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { padding: SPACING.lg, paddingBottom: SPACING.xl * 2 },
-  headerContainer: { marginBottom: SPACING.lg },
-  headerTitle: { fontWeight: '700', marginBottom: SPACING.xs },
-  headerSubtitle: { fontWeight: '400' },
-  card: {
-    borderRadius: 16,
-    padding: SPACING.md,
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: SPACING.lg,
+    paddingBottom: SPACING.xl * 2,
+  },
+  header: {
+    fontWeight: '700',
     marginBottom: SPACING.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(0,0,0,0.05)',

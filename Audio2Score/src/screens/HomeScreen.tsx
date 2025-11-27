@@ -1,6 +1,13 @@
 // src/screens/HomeScreen.tsx
 import React from 'react';
-import { View, Text, StyleSheet, ImageBackground, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ImageBackground,
+  ScrollView,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
@@ -14,15 +21,25 @@ export const HomeScreen = () => {
       style={styles.background}
       resizeMode="cover"
     >
-      <View style={styles.overlay}>
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ─── Top greeting card ───────────────────────────── */}
-          <View style={styles.greetingCard}>
-            <Text style={styles.welcomeLabel}>Welcome Back</Text>
-            <Text style={styles.title}>歡迎回來！</Text>
+      <View
+        style={[
+          styles.overlay,
+          { backgroundColor: 'rgba(0, 0, 0, 0.45)' }, // can tweak for dark/light later
+        ]}
+      >
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text
+            style={[
+              styles.title,
+              {
+                color: colors.text,
+                fontSize: FONT_SIZES.xxl * scale,
+              },
+            ]}
+          >
+            歡迎回來！
+          </Text>
 
             <View style={styles.userInfoRow}>
               <View style={styles.avatarCircle}>
@@ -103,6 +120,7 @@ export const HomeScreen = () => {
             <Button title="登出" onPress={logout} variant="outline" />
           </View>
         </ScrollView>
+        </SafeAreaView>
       </View>
     </ImageBackground>
   );
