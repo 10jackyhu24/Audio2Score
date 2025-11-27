@@ -1,3 +1,4 @@
+// src/screens/SettingsScreen.tsx
 import React from 'react';
 import {
   View,
@@ -29,49 +30,81 @@ export const SettingsScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent}>
       <Text
         style={[
-          styles.header,
-          {
-            color: colors.text,
-            fontSize: FONT_SIZES.xl * scale,
-          },
+          styles.card,
+          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
         ]}
       >
-        設定
-      </Text>
-
-      {/* 外觀 */}
-      <View style={styles.section}>
         <Text
           style={[
             styles.sectionTitle,
-            { color: colors.text, fontSize: FONT_SIZES.lg * scale },
+            {
+              color: isDarkMode ? 'white' : '#222',
+              fontSize: FONT_SIZES.lg * scale,
+            },
           ]}
         >
           外觀
         </Text>
 
         <View style={styles.row}>
-          <Text
-            style={[
-              styles.label,
-              { color: colors.text, fontSize: FONT_SIZES.md * scale },
-            ]}
-          >
-            深色模式
-          </Text>
+          <View style={styles.rowTextGroup}>
+            <Text
+              style={[
+                styles.label,
+                {
+                  color: isDarkMode ? 'white' : '#222',
+                  fontSize: FONT_SIZES.md * scale,
+                },
+              ]}
+            >
+              深色模式
+            </Text>
+            <Text
+              style={[
+                styles.labelHint,
+                {
+                  color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
+                  fontSize: 12 * scale,
+                },
+              ]}
+            >
+              在昏暗環境中讓畫面更舒適
+            </Text>
+          </View>
           <Switch value={isDarkMode} onValueChange={toggleTheme} />
         </View>
       </View>
 
       {/* 文字大小 */}
-      <View style={styles.section}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+        ]}
+      >
         <Text
           style={[
             styles.sectionTitle,
-            { color: colors.text, fontSize: FONT_SIZES.lg * scale },
+            {
+              color: isDarkMode ? 'white' : '#222',
+              fontSize: FONT_SIZES.lg * scale,
+            },
           ]}
         >
           文字大小
+        </Text>
+
+        <Text
+          style={[
+            styles.labelHint,
+            {
+              color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
+              fontSize: 12 * scale,
+              marginBottom: SPACING.sm,
+            },
+          ]}
+        >
+          調整整體文字比例
         </Text>
 
         <View style={styles.fontRow}>
@@ -82,7 +115,7 @@ export const SettingsScreen = () => {
                 key={option.label}
                 style={[
                   styles.fontButton,
-                  active && { backgroundColor: colors.primary },
+                  active && { backgroundColor: colors.primary, borderColor: colors.primary },
                 ]}
                 onPress={() => setScale(option.value)}
               >
@@ -90,7 +123,11 @@ export const SettingsScreen = () => {
                   style={[
                     styles.fontButtonText,
                     {
-                      color: active ? 'white' : colors.text,
+                      color: active
+                        ? 'white'
+                        : isDarkMode
+                        ? 'white'
+                        : '#222',
                       fontSize: FONT_SIZES.md * option.value,
                     },
                   ]}
@@ -103,15 +140,36 @@ export const SettingsScreen = () => {
         </View>
       </View>
 
-      {/* 登出 */}
-      <View style={styles.section}>
+      {/* 帳號 */}
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+        ]}
+      >
         <Text
           style={[
             styles.sectionTitle,
-            { color: colors.text, fontSize: FONT_SIZES.lg * scale },
+            {
+              color: isDarkMode ? 'white' : '#222',
+              fontSize: FONT_SIZES.lg * scale,
+            },
           ]}
         >
           帳號
+        </Text>
+
+        <Text
+          style={[
+            styles.labelHint,
+            {
+              color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
+              fontSize: 12 * scale,
+              marginBottom: SPACING.sm,
+            },
+          ]}
+        >
+          登出後可以使用其他帳號重新登入
         </Text>
 
         <TouchableOpacity
@@ -124,7 +182,10 @@ export const SettingsScreen = () => {
           <Text
             style={[
               styles.logoutText,
-              { color: colors.primary, fontSize: FONT_SIZES.md * scale },
+              {
+                color: colors.primary,
+                fontSize: FONT_SIZES.md * scale,
+              },
             ]}
           >
             登出
@@ -147,27 +208,20 @@ const styles = StyleSheet.create({
   header: {
     fontWeight: '700',
     marginBottom: SPACING.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.05)',
   },
-  section: {
-    marginBottom: SPACING.xl,
-  },
-  sectionTitle: {
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-  },
+  sectionTitle: { fontWeight: '600', marginBottom: SPACING.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
+    paddingTop: SPACING.sm,
   },
-  label: {
-    fontWeight: '400',
-  },
-  fontRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
+  rowTextGroup: { flex: 1, paddingRight: SPACING.md },
+  label: { fontWeight: '500', marginBottom: 2 },
+  labelHint: { fontWeight: '400' },
+  fontRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
   fontButton: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
@@ -175,17 +229,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
   },
-  fontButtonText: {
-    fontWeight: '500',
-  },
+  fontButtonText: { fontWeight: '500' },
   logoutButton: {
     marginTop: SPACING.sm,
     paddingVertical: SPACING.sm,
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 999,
   },
-  logoutText: {
-    fontWeight: '600',
-  },
+  logoutText: { fontWeight: '600' },
+  footerNote: { textAlign: 'center', marginTop: SPACING.md },
 });
+
+export default SettingsScreen;

@@ -1,3 +1,4 @@
+// src/screens/HomeScreen.tsx
 import React from 'react';
 import {
   View,
@@ -9,20 +10,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
-import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 
 export const HomeScreen = () => {
   const { user, logout } = useAuth();
-  const { colors } = useTheme();
-  const { scale } = useFontSize();
 
   return (
     <ImageBackground
       source={require('../../assets/background-music.png')}
       style={styles.background}
-      resizeMode="contain"
+      resizeMode="cover"
     >
       <View
         style={[
@@ -44,112 +41,81 @@ export const HomeScreen = () => {
             歡迎回來！
           </Text>
 
-          <Text
-            style={[
-              styles.username,
-              {
-                color: colors.primary,
-                fontSize: FONT_SIZES.xl * scale,
-              },
-            ]}
-          >
-            @{user?.username}
-          </Text>
+            <View style={styles.userInfoRow}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>
+                  {user?.username?.[0]?.toUpperCase() || 'A'}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.username}>@{user?.username}</Text>
+                <Text style={styles.email}>{user?.email}</Text>
+              </View>
+            </View>
+          </View>
 
-          <Text
-            style={[
-              styles.email,
-              {
-                color: colors.textSecondary,
-                fontSize: FONT_SIZES.md * scale,
-              },
-            ]}
-          >
-            {user?.email}
-          </Text>
-
-          {/* ─── Introduction ───────────────────────── */}
-          <View style={styles.introContainer}>
-            <Text
-              style={[
-                styles.subtitle,
-                { fontSize: FONT_SIZES.lg * scale },
-              ]}
-            >
-              🎵 關於此專案
-            </Text>
-            <Text
-              style={[
-                styles.introText,
-                { fontSize: FONT_SIZES.md * scale },
-              ]}
-            >
+          {/* ─── Project intro ──────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.subtitle}>🎵 關於此專案</Text>
+            <Text style={styles.bodyText}>
               這個應用程式使用人工智慧將音訊轉換成樂譜。
               您可以上傳或錄製旋律，系統會分析音高、節奏及音符，
-              並自動生成可視化的樂譜。這項技術結合了深度學習與音訊處理，
-              讓音樂創作與學習更輕鬆。
+              並自動生成可視化的樂譜。
+            </Text>
+            <Text style={styles.bodyText}>
+              透過結合深度學習與音訊處理，我們希望讓音樂創作與學習變得
+              更直覺、更快速，也更有趣。
             </Text>
           </View>
 
-          {/* ─── Why We Do This ─────────────────────── */}
-          <View style={styles.sectionContainer}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { fontSize: FONT_SIZES.lg * scale },
-              ]}
-            >
-              🧠 為什麼我們要做這個？
+          {/* ─── Why we do this ─────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>🧠 為什麼我們要做這個？</Text>
+            <Text style={styles.bodyText}>
+              許多音樂學習者與創作者在靈感出現時，往往只有錄音檔，
+              沒有時間將它們轉成樂譜。
             </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                { fontSize: FONT_SIZES.md * scale },
-              ]}
-            >
-              許多音樂學習者與創作者在靈感出現時，往往只有旋律的錄音，
-              而沒有時間將它們轉換成樂譜。
-              本專案的目標是幫助使用者快速將想法變成可視化的譜面，
-              不論是創作、教學或分析，都能節省大量時間。
-              同時也讓人工智慧更貼近音樂教育與創作的實際需求。
+            <Text style={styles.bodyText}>
+              我們希望：
             </Text>
+            <View style={styles.bulletList}>
+              <Text style={styles.bulletItem}>• 快速把靈感轉成可視化的譜面</Text>
+              <Text style={styles.bulletItem}>• 協助教學與分析，減少手動轉譜時間</Text>
+              <Text style={styles.bulletItem}>• 讓 AI 更貼近音樂教育與創作實際需求</Text>
+            </View>
           </View>
 
-          {/* ─── How to Use ─────────────────────────── */}
-          <View style={styles.sectionContainer}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { fontSize: FONT_SIZES.lg * scale },
-              ]}
-            >
-              🪄 如何使用
-            </Text>
-            <Text
-              style={[
-                styles.sectionText,
-                { fontSize: FONT_SIZES.md * scale },
-              ]}
-            >
-              <Text style={[styles.step, { fontSize: FONT_SIZES.md * scale }]}>
-                步驟 1：
-              </Text>{' '}
-              前往「Record」頁面並上傳或錄製音訊（支援 WAV、MP4、MP3）。{'\n'}
-              <Text style={[styles.step, { fontSize: FONT_SIZES.md * scale }]}>
-                步驟 2：
-              </Text>{' '}
-              等待系統進行音訊分析，AI 會辨識音高與節奏。{'\n'}
-              <Text style={[styles.step, { fontSize: FONT_SIZES.md * scale }]}>
-                步驟 3：
-              </Text>{' '}
-              查看轉換結果，預覽生成的樂譜。{'\n'}
-              <Text style={[styles.step, { fontSize: FONT_SIZES.md * scale }]}>
-                步驟 4：
-              </Text>{' '}
-              可將樂譜儲存或分享，用於學習或創作。
-            </Text>
+          {/* ─── How to use ─────────────────────────────────── */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>🪄 如何使用</Text>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepBadge}>1</Text>
+              <Text style={styles.stepText}>
+                前往 <Text style={styles.highlight}>Record</Text> 頁面，上傳或錄製音訊（支援 WAV、MP3、MP4）。
+              </Text>
+            </View>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepBadge}>2</Text>
+              <Text style={styles.stepText}>
+                等待系統分析音高與節奏，產生對應的 MIDI 與樂譜資料。
+              </Text>
+            </View>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepBadge}>3</Text>
+              <Text style={styles.stepText}>
+                在 <Text style={styles.highlight}>MIDI 播放</Text> 或 <Text style={styles.highlight}>Library</Text> 中
+                檢視、播放並管理轉譜結果。
+              </Text>
+            </View>
+            <View style={styles.stepRow}>
+              <Text style={styles.stepBadge}>4</Text>
+              <Text style={styles.stepText}>
+                將生成的樂譜用於練習、創作或教學分享。
+              </Text>
+            </View>
           </View>
 
+          {/* ─── Logout button ──────────────────────────────── */}
           <View style={styles.buttonContainer}>
             <Button title="登出" onPress={logout} variant="outline" />
           </View>
@@ -163,73 +129,141 @@ export const HomeScreen = () => {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   overlay: {
     flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.lg,
+    backgroundColor: 'rgba(10, 10, 20, 0.60)', // darker transparent overlay
   },
   scroll: {
-    alignItems: 'center',
-    paddingBottom: 40,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xl * 1.5,
+  },
+
+  // Greeting card
+  greetingCard: {
+    backgroundColor: 'rgba(15, 15, 30, 0.85)',
+    borderRadius: 18,
+    paddingVertical: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  welcomeLabel: {
+    fontSize: FONT_SIZES.sm,
+    color: 'rgba(255,255,255,0.7)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
   title: {
-    fontWeight: 'bold',
+    fontSize: FONT_SIZES.xxl,
+    fontWeight: '800',
+    color: 'white',
     marginBottom: SPACING.md,
-    marginTop: 40,
+  },
+  userInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  avatarText: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: '700',
   },
   username: {
-    marginBottom: SPACING.sm,
+    fontSize: FONT_SIZES.lg,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   email: {
-    marginBottom: SPACING.lg,
+    fontSize: FONT_SIZES.sm,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
   },
-  introContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
-    width: '90%',
+
+  // Generic cards
+  card: {
+    backgroundColor: 'rgba(20, 20, 40, 0.85)',
+    borderRadius: 18,
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   subtitle: {
-    fontWeight: '600',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
     color: '#FFD700',
     marginBottom: SPACING.sm,
-    textAlign: 'center',
   },
-  introText: {
+  bodyText: {
+    fontSize: FONT_SIZES.md,
     lineHeight: 22,
-    color: 'white',
-    textAlign: 'center',
-  },
-  sectionContainer: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.xl,
-    width: '90%',
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 6,
   },
   sectionTitle: {
-    fontWeight: '600',
-    color: '#00BFFF',
+    fontSize: FONT_SIZES.lg,
+    fontWeight: '700',
+    color: '#87CEFA',
     marginBottom: SPACING.sm,
-    textAlign: 'center',
   },
-  sectionText: {
+  bulletList: {
+    marginTop: SPACING.xs,
+  },
+  bulletItem: {
+    fontSize: FONT_SIZES.md,
     lineHeight: 22,
-    color: 'white',
-    textAlign: 'left',
+    color: 'rgba(255,255,255,0.9)',
+    marginVertical: 2,
   },
-  step: {
-    fontWeight: 'bold',
-    color: '#FFD700',
+
+  // Steps
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.sm,
   },
+  stepBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFD700',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    color: '#2b2b2b',
+    fontWeight: '700',
+    marginRight: SPACING.sm,
+    overflow: 'hidden',
+  },
+  stepText: {
+    flex: 1,
+    fontSize: FONT_SIZES.md,
+    lineHeight: 22,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  highlight: {
+    color: '#FFB347',
+    fontWeight: '700',
+  },
+
   buttonContainer: {
+    marginTop: SPACING.lg,
+    alignSelf: 'center',
     width: '100%',
-    maxWidth: 300,
+    maxWidth: 320,
   },
 });
