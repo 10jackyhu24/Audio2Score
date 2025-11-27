@@ -81,7 +81,7 @@ export const SettingsScreen = () => {
           styles.card,
           { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
         ]}
-      >
+      > 
         <Text
           style={[
             styles.sectionTitle,
