@@ -6,6 +6,7 @@ import {
   ImageBackground,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -29,6 +30,7 @@ export const HomeScreen = () => {
           { backgroundColor: 'rgba(0, 0, 0, 0.45)' }, // can tweak for dark/light later
         ]}
       >
+        <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <Text
             style={[
@@ -152,6 +154,7 @@ export const HomeScreen = () => {
             <Button title="登出" onPress={logout} variant="outline" />
           </View>
         </ScrollView>
+        </SafeAreaView>
       </View>
     </ImageBackground>
   );

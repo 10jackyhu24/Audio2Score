@@ -3,7 +3,7 @@
     "name": "Audio2Score",
     "slug": "Audio2Score",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,

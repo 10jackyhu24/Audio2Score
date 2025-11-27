@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, Alert, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Button } from '../components/Button';
@@ -454,13 +455,14 @@ export const RecordScreen = () => {
   };
 
   return (
-    <ScrollView 
-      style={[
-        styles.container,
-        { backgroundColor: colors.background },
-      ]}
-      contentContainerStyle={styles.scrollContent}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+      <ScrollView 
+        style={[
+          styles.container,
+          { backgroundColor: colors.background },
+        ]}
+        contentContainerStyle={styles.scrollContent}
+      >
       <Text
         style={[
           styles.title,
@@ -624,6 +626,7 @@ export const RecordScreen = () => {
         3️⃣ 查看控制台 (console.log) 的錯誤訊息
       </Text>
     </ScrollView>
+    </SafeAreaView>
   );
 };
 
