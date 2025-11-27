@@ -39,6 +39,7 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   const progressBarRef = useRef<View>(null);
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const playedNotesRef = useRef<Set<string>>(new Set()); // 追蹤已播放的音符（使用唯一ID）
 
   // 加載 MIDI 文件
   useEffect(() => {
@@ -93,20 +94,29 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     
     setCurrentTime(adjustedTime);
 
-    // 檢測當前應該播放的音符
+    // 檢測當前應該播放的音符（增加容錯範圍以提前觸發）
+    const triggerWindow = 0.05; // 50ms 容錯窗口
     const currentActiveNotes = notes
       .filter(note => 
-        adjustedTime >= note.startTime && 
-        adjustedTime <= note.startTime + note.duration
+        adjustedTime >= note.startTime - triggerWindow && 
+        adjustedTime <= note.startTime + note.duration + triggerWindow
       )
       .map(note => note.note);
 
     setActiveNotes(currentActiveNotes);
 
-    // 播放新激活的音符
-    currentActiveNotes.forEach(note => {
-      if (!activeNotes.includes(note)) {
-        AudioManager.playNote(note);
+    // 播放新激活的音符（只在音符剛開始時觸發）
+    notes.forEach((note, index) => {
+      // 為每個音符創建唯一ID（音符名稱 + 開始時間 + 索引）
+      const noteId = `${note.note}-${note.startTime}-${index}`;
+      
+      const justStarted = adjustedTime >= note.startTime - triggerWindow && 
+                         adjustedTime < note.startTime + 0.1;
+      
+      // 檢查這個音符是否還沒有被播放過
+      if (justStarted && !playedNotesRef.current.has(noteId)) {
+        AudioManager.playNote(note.note, note.duration);
+        playedNotesRef.current.add(noteId); // 標記為已播放
       }
     });
 
@@ -133,6 +143,18 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     } else {
       setIsPlaying(true);
       startTimeRef.current = Date.now() - (currentTime * 1000) / speed;
+      
+      // 清除當前時間之前的已播放音符記錄
+      const currentPlayedNotes = new Set<string>();
+      notes.forEach((note, index) => {
+        const noteId = `${note.note}-${note.startTime}-${index}`;
+        // 只保留已經過去的音符記錄
+        if (note.startTime < currentTime) {
+          currentPlayedNotes.add(noteId);
+        }
+      });
+      playedNotesRef.current = currentPlayedNotes;
+      
       animate();
     }
   };
@@ -145,6 +167,8 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
       cancelAnimationFrame(animationRef.current);
     }
     AudioManager.stopAll();
+    // 清空已播放音符記錄
+    playedNotesRef.current.clear();
   };
 
   const handleReset = (): void => {
@@ -160,6 +184,17 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
       handleStop();
     }
     setCurrentTime(time);
+    
+    // 清除已播放音符記錄，重新標記已過去的音符
+    const currentPlayedNotes = new Set<string>();
+    notes.forEach((note, index) => {
+      const noteId = `${note.note}-${note.startTime}-${index}`;
+      // 標記已經過去的音符為已播放
+      if (note.startTime < time) {
+        currentPlayedNotes.add(noteId);
+      }
+    });
+    playedNotesRef.current = currentPlayedNotes;
   };
 
   const handleKeyboardLayout = (width: number): void => {
@@ -174,6 +209,18 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     const newTime = progressPercent * duration;
     
     setCurrentTime(newTime);
+    
+    // 清除已播放音符記錄，重新標記已過去的音符
+    const currentPlayedNotes = new Set<string>();
+    notes.forEach((note, index) => {
+      const noteId = `${note.note}-${note.startTime}-${index}`;
+      // 標記已經過去的音符為已播放
+      if (note.startTime < newTime) {
+        currentPlayedNotes.add(noteId);
+      }
+    });
+    playedNotesRef.current = currentPlayedNotes;
+    
     if (isPlaying) {
       startTimeRef.current = Date.now() - (newTime * 1000) / speed;
     }

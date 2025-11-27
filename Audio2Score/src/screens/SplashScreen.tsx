@@ -20,37 +20,62 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onInitComplete }) =>
 
   const initializeApp = async () => {
     try {
+      console.log('🚀 開始初始化應用程式...');
+      
       // 設置進度回調
       AudioManager.setOnInitProgress((prog) => {
+        console.log(`📊 初始化進度: ${prog}%`);
         setProgress(prog);
         
         if (prog < 20) {
           setStatus('正在初始化音頻系統...');
+        } else if (prog < 30) {
+          setStatus('正在創建音頻上下文...');
         } else if (prog < 40) {
           setStatus('正在配置音頻環境...');
-        } else if (prog < 50) {
-          setStatus('正在載入音頻資源...');
+        } else if (prog < 60) {
+          setStatus('正在設置音頻處理器...');
         } else if (prog < 90) {
-          const poolProgress = Math.round(((prog - 40) / 50) * 20);
-          setStatus(`音頻池載入中... (${poolProgress}/20)`);
+          setStatus('正在載入 88 個鋼琴音符...');
+        } else if (prog < 100) {
+          setStatus('準備就緒...');
         } else {
-          setStatus('準備就緒！');
+          setStatus('完成！');
         }
       });
 
+      // 設置超時保護（10秒後強制完成）
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ 初始化超時，強制完成');
+        setProgress(100);
+        setStatus('初始化完成（使用降級模式）');
+        setTimeout(() => {
+          onInitComplete();
+        }, 500);
+      }, 10000);
+
       // 初始化 AudioManager
+      console.log('🎵 開始初始化 AudioManager...');
       await AudioManager.initialize();
+      console.log('✅ AudioManager 初始化完成');
+      
+      // 清除超時
+      clearTimeout(timeoutId);
       
       // 等待一小段時間讓用戶看到 100%
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      console.log('✅ 應用程式初始化完成，準備進入主畫面');
       onInitComplete();
     } catch (error) {
-      console.error('初始化失敗:', error);
+      console.error('❌ 初始化失敗:', error);
       // 即使失敗也繼續
       setProgress(100);
       setStatus('初始化完成（部分功能可能不可用）');
-      setTimeout(onInitComplete, 1000);
+      setTimeout(() => {
+        console.log('⚠️ 以降級模式進入主畫面');
+        onInitComplete();
+      }, 1000);
     }
   };
 
