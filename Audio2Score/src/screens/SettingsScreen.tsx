@@ -28,7 +28,7 @@ export const SettingsScreen = () => {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-      <Text
+      <View
         style={[
           styles.card,
           { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
@@ -221,6 +221,11 @@ const styles = StyleSheet.create({
   rowTextGroup: { flex: 1, paddingRight: SPACING.md },
   label: { fontWeight: '500', marginBottom: 2 },
   labelHint: { fontWeight: '400' },
+  card: {
+    padding: SPACING.md,
+    borderRadius: 12,
+    marginBottom: SPACING.md,
+  },
   fontRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
   fontButton: {
     paddingVertical: SPACING.sm,

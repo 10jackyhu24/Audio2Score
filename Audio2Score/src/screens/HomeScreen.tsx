@@ -10,10 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 
 export const HomeScreen = () => {
   const { user, logout } = useAuth();
+  const { colors } = useTheme();
+  const { scale } = useFontSize();
 
   return (
     <ImageBackground
@@ -29,17 +33,18 @@ export const HomeScreen = () => {
       >
         <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text
-            style={[
-              styles.title,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.xxl * scale,
-              },
-            ]}
-          >
-            歡迎回來！
-          </Text>
+          <View style={styles.greetingCard}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: colors.text,
+                  fontSize: FONT_SIZES.xxl * scale,
+                },
+              ]}
+            >
+              歡迎回來！
+            </Text>
 
             <View style={styles.userInfoRow}>
               <View style={styles.avatarCircle}>
