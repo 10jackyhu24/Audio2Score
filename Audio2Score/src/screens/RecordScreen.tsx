@@ -476,7 +476,7 @@ export const RecordScreen = () => {
       <View
         style={[
           styles.card,
-          { backgroundColor: colors.card ?? 'rgba(38, 34, 34, 0.04)' },
+          { backgroundColor: colors.card ?? 'rgba(0,0,0,0.04)' },
         ]}
       >
         {file ? (
