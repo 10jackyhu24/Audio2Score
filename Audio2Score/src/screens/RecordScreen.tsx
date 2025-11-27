@@ -487,7 +487,7 @@ export const RecordScreen = () => {
               style={[
                 styles.label,
                 {
-                  color: colors.text,
+                  color: colors.textSecondary,
                   fontSize: FONT_SIZES.md * scale,
                 },
               ]}
@@ -503,7 +503,7 @@ export const RecordScreen = () => {
                 style={[
                   styles.label,
                   {
-                    color: colors.text,
+                    color: colors.textSecondary,
                     fontSize: FONT_SIZES.md * scale,
                   },
                 ]}
@@ -519,7 +519,7 @@ export const RecordScreen = () => {
               style={[
                 styles.label,
                 {
-                  color: colors.text,
+                  color: colors.textSecondary ,
                   fontSize: FONT_SIZES.md * scale,
                 },
               ]}
