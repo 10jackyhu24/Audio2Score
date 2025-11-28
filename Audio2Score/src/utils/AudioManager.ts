@@ -2,6 +2,7 @@
 // 跨平台音頻管理器：Web 使用 Web Audio API，手機使用 Expo AV
 import { Platform } from 'react-native';
 import { Audio } from 'expo-av';
+import { Asset } from 'expo-asset';
 
 interface NoteFrequency {
   [key: string]: number;
@@ -214,187 +215,123 @@ class AudioManager {
   }
 
   async initialize(): Promise<void> {
+    // 強制重置初始化狀態，確保每次呼叫都能重新執行載入邏輯
     if (this.isInitialized) {
-      this.updateInitProgress(100);
-      return;
-    }
-
-    // 防止重複初始化
-    if (this.initProgress > 0 && this.initProgress < 100) {
-      console.log('⚠️ AudioManager 正在初始化中，請稍候...');
-      return;
+        console.log('🔄 AudioManager 已初始化，重新檢查資源...');
+        // 資源檢查：如果緩衝區數量正確，則直接返回
+        if ((this.isWeb && this.audioBuffers.size > 80) || (!this.isWeb && this.soundObjects.size > 80)) {
+             this.updateInitProgress(100);
+             return;
+        }
     }
 
     try {
-      this.updateInitProgress(10);
+      this.updateInitProgress(5);
       console.log('🎵 開始初始化 AudioManager...');
-      console.log('📱 平台:', this.isWeb ? 'Web' : 'Mobile');
       
       if (this.isWeb) {
-        // Web 環境：使用 Web Audio API 播放采樣音頻
-        // @ts-ignore - Web Audio API 可能不在所有環境中可用
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        // --- WEB 初始化邏輯 ---
+        // 使用 globalThis 作為安全替代
+        const env: any = typeof globalThis !== 'undefined' ? globalThis : {};
+        const AudioContextClass = env.AudioContext || env.webkitAudioContext;
         
         if (AudioContextClass) {
-          console.log('✅ Web Audio API 可用');
+          this.audioContext = new AudioContextClass();
+          
+          // 🔥 修正重點：移除這裡的 await resume() 區塊。
+          // 移除原因：瀏覽器在重新整理後會將 AudioContext 設為 'suspended'。
+          // 在沒有使用者互動的情況下對其使用 await resume() 會導致程式無限等待，載入卡在 5%。
+          // 資源載入 (loadAudioBuffer) 可以在 suspended 狀態下正常完成。
+          
+          // 設置壓縮器與 Gain
+          const compressor = this.audioContext.createDynamicsCompressor();
+          // ... (壓縮器設定保持不變) ...
+          compressor.threshold.value = -24;
+          compressor.knee.value = 30;
+          compressor.ratio.value = 12;
+          compressor.attack.value = 0.003;
+          compressor.release.value = 0.25;
+
+          this.gainNode = this.audioContext.createGain();
+          this.gainNode.gain.value = 0.3;
+          this.gainNode.connect(compressor);
+          compressor.connect(this.audioContext.destination);
+
           this.updateInitProgress(20);
           
-          try {
-            this.audioContext = new AudioContextClass();
-            console.log('✅ AudioContext 創建成功，狀態:', this.audioContext.state);
-            
-            // 恢復 AudioContext（某些瀏覽器需要用戶交互才能啟動）
-            if (this.audioContext.state === 'suspended') {
-              console.log('⚠️ AudioContext 處於暫停狀態，嘗試恢復...');
-              try {
-                await this.audioContext.resume();
-                console.log('✅ AudioContext 已恢復，新狀態:', this.audioContext.state);
-              } catch (e) {
-                console.warn('❌ AudioContext 恢復失敗:', e);
-              }
-            }
-            
-            this.updateInitProgress(30);
-            
-            // 添加動態壓縮器
-            const compressor = this.audioContext.createDynamicsCompressor();
-            compressor.threshold.value = -24;
-            compressor.knee.value = 30;
-            compressor.ratio.value = 12;
-            compressor.attack.value = 0.003;
-            compressor.release.value = 0.25;
-            
-            console.log('✅ 壓縮器設置完成');
-            this.updateInitProgress(40);
-            
-            this.gainNode = this.audioContext.createGain();
-            this.gainNode.gain.value = 0.3; // 全局音量
-            
-            // 連接：增益 -> 壓縮器 -> 輸出
-            this.gainNode.connect(compressor);
-            compressor.connect(this.audioContext.destination);
-            
-            console.log('✅ 音頻節點連接完成');
-            this.updateInitProgress(60);
-            
-            // 加載鋼琴采樣音頻文件
-            try {
-              console.log('📦 開始加載音頻采樣...');
-              await this.loadAudioBuffer();
-              console.log('✅ 音頻采樣加載完成');
-              this.updateInitProgress(90);
-            } catch (error) {
-              console.error('❌ 加載音頻文件失敗:', error);
-              // 即使加載失敗也繼續，使用振盪器作為後備
-              this.updateInitProgress(90);
-            }
-            
-            this.updateInitProgress(100);
-            this.isInitialized = true;
-            
-            if (this.audioBuffers.size > 0) {
-              console.log(`✅ AudioManager 初始化成功 (Web - 高品質采樣音頻, ${this.audioBuffers.size} 個音符)`);
-            } else {
-              console.log('✅ AudioManager 初始化成功 (Web - 合成音頻後備模式)');
-            }
-          } catch (audioContextError) {
-            console.error('❌ AudioContext 初始化失敗:', audioContextError);
-            // 標記為已初始化，但沒有音頻支持
-            this.updateInitProgress(100);
-            this.isInitialized = true;
-            console.warn('⚠️ AudioManager 初始化完成（無音頻支持）');
-          }
-        } else {
-          console.warn('❌ Web Audio API 不可用');
-          // 標記為已初始化，但沒有音頻支持
-          this.updateInitProgress(100);
+          // 載入音頻緩衝 (現在它會立即執行，不會被 AudioContext 阻塞)
+          await this.loadAudioBuffer();
+          
           this.isInitialized = true;
+          this.updateInitProgress(100);
         }
       } else {
-        // React Native 環境：設置音頻模式
-        this.updateInitProgress(20);
+        // --- MOBILE 初始化邏輯 ---
         await Audio.setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: false,
           shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
           interruptionModeIOS: 1,
           interruptionModeAndroid: 1,
         });
+
+        this.updateInitProgress(20);
         
-        this.updateInitProgress(40);
-        // 預載所有音符的 Sound 對象
+        // 載入 Sound 對象
         await this.initializeSoundObjects();
         
-        this.updateInitProgress(100);
         this.isInitialized = true;
-        console.log(`✅ AudioManager 初始化成功 (Mobile - ${this.soundObjects.size} 個音符)`);
+        this.updateInitProgress(100);
       }
     } catch (error) {
-      console.error('AudioManager 初始化失敗:', error);
-      this.updateInitProgress(100);
+      console.error('初始化失敗:', error);
+      this.updateInitProgress(100); // 失敗也設為 100 讓 App 進入
     }
   }
 
   // 加載音頻采樣文件（Web端）- 加載所有 88 個鋼琴音符
   private async loadAudioBuffer(): Promise<void> {
     try {
-      console.log('🎹 開始加載 88 個鋼琴音符采樣...');
-      
+      console.log('🎹 [Web] 開始載入 88 個鋼琴音符...');
       const noteNames = Object.keys(this.audioFileMap);
       const totalNotes = noteNames.length;
       let loadedCount = 0;
-      let failedCount = 0;
 
-      // 批量加載音頻文件
-      const loadPromises = noteNames.map(async (noteName) => {
-        try {
-          let audioUrl = this.audioFileMap[noteName];
-          
-          // 如果是對象，嘗試獲取 default 屬性
-          if (typeof audioUrl === 'object' && audioUrl.default) {
-            audioUrl = audioUrl.default;
-          }
-          
-          // 使用 fetch 獲取音頻數據
-          const response = await fetch(audioUrl);
-          
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          
-          const arrayBuffer = await response.arrayBuffer();
-          
-          // 解碼音頻數據
-          const buffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          
-          // 存儲到 Map 中
-          this.audioBuffers.set(noteName, buffer);
-          loadedCount++;
-          
-          // 更新進度（60% -> 90% 之間）
-          const progress = 60 + (loadedCount / totalNotes) * 30;
-          this.updateInitProgress(progress);
-          
-        } catch (error) {
-          failedCount++;
-          console.warn(`⚠️ 無法加載音符 ${noteName}:`, error);
-        }
-      });
+      // 使用 Promise.all 進行並行下載 (Concurrency)
+      // 為了避免瀏覽器請求過多卡死，我們將其分成小塊 (Chunks)
+      const chunkSize = 10; // 每次同時下載 10 個
+      for (let i = 0; i < noteNames.length; i += chunkSize) {
+        const chunk = noteNames.slice(i, i + chunkSize);
+        
+        await Promise.all(chunk.map(async (noteName) => {
+            try {
+                const module = this.audioFileMap[noteName];
+                // 1. 使用 Expo Asset 解析真實 URI
+                const asset = Asset.fromModule(module);
+                await asset.downloadAsync(); // 確保下載完成
+                
+                // 2. Fetch 二進制資料
+                const response = await fetch(asset.uri || asset.localUri || '');
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // 3. Decode
+                const buffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                this.audioBuffers.set(noteName, buffer);
+                
+                loadedCount++;
+            } catch (e) {
+                console.warn(`載入音符失敗: ${noteName}`, e);
+            }
+        }));
 
-      // 等待所有加載完成
-      await Promise.all(loadPromises);
-      
-      console.log('✅ 音頻采樣加載完成');
-      console.log(`   - 成功: ${loadedCount}/${totalNotes} 個音符`);
-      if (failedCount > 0) {
-        console.warn(`   - 失敗: ${failedCount} 個音符`);
+        // 更新進度
+        const progress = 20 + (loadedCount / totalNotes) * 80;
+        this.updateInitProgress(progress);
       }
       
+      console.log(`✅ [Web] 音頻載入完成: ${loadedCount}/${totalNotes}`);
     } catch (error) {
-      console.error('❌ 音頻采樣加載失敗:', error);
-      console.warn('⚠️ 將使用振盪器作為後備方案');
-      // 不拋出錯誤，允許使用振盪器作為後備
+      console.error('Web 音頻載入嚴重錯誤:', error);
     }
   }
 
@@ -447,60 +384,47 @@ class AudioManager {
   // 初始化所有音符的 Sound 對象（Mobile 端）
   private async initializeSoundObjects(): Promise<void> {
     try {
-      console.log('🎹 正在初始化 88 個鋼琴音符...');
-      
+      console.log('🎹 [Mobile] 開始載入 88 個鋼琴音符...');
       const noteNames = Object.keys(this.audioFileMap);
       const totalNotes = noteNames.length;
       let loadedCount = 0;
-      let failedCount = 0;
 
-      for (let i = 0; i < noteNames.length; i++) {
-        const noteName = noteNames[i];
+      // Mobile 端並行處理：分批載入以避免記憶體瞬間飆升
+      const chunkSize = 5; // 手機端保守一點，一次 5 個
+      for (let i = 0; i < noteNames.length; i += chunkSize) {
+        const chunk = noteNames.slice(i, i + chunkSize);
         
-        try {
-          const audioAsset = this.audioFileMap[noteName];
-          
-          const { sound } = await Audio.Sound.createAsync(
-            audioAsset,
-            { 
-              shouldPlay: false,
-              volume: 0.3,
-              rate: 1.0,
-              shouldCorrectPitch: false,
-              isLooping: false,
+        await Promise.all(chunk.map(async (noteName) => {
+            try {
+                const module = this.audioFileMap[noteName];
+                
+                // 建立 Sound 物件
+                const { sound } = await Audio.Sound.createAsync(
+                    module,
+                    { shouldPlay: false, volume: 0.3 }
+                );
+                
+                this.soundObjects.set(noteName, sound);
+                loadedCount++;
+            } catch (e) {
+                console.warn(`載入音符失敗: ${noteName}`, e);
             }
-          );
-          
-          // 預載音頻到內存
-          await sound.setPositionAsync(0);
-          
-          // 存儲到 Map 中
-          this.soundObjects.set(noteName, sound);
-          loadedCount++;
-          
-          // 更新進度（40% -> 90% 之間）
-          const progress = 40 + (loadedCount / totalNotes) * 50;
-          this.updateInitProgress(progress);
-          
-        } catch (soundError) {
-          failedCount++;
-          console.warn(`⚠️ 無法加載音符 ${noteName}:`, soundError);
-        }
+        }));
+
+        // 更新進度
+        const progress = 20 + (loadedCount / totalNotes) * 80;
+        this.updateInitProgress(progress);
+        
+        // 小小的延遲讓 UI 有機會渲染進度條
+        await new Promise(resolve => setTimeout(resolve, 10));
       }
+
+      console.log(`✅ [Mobile] 音頻載入完成: ${loadedCount}/${totalNotes}`);
       
-      console.log('✅ 音符 Sound 對象初始化完成');
-      console.log(`   - 成功: ${loadedCount}/${totalNotes} 個音符`);
-      if (failedCount > 0) {
-        console.warn(`   - 失敗: ${failedCount} 個音符`);
-      }
-      
-      if (this.soundObjects.size === 0) {
-        throw new Error('無法載入任何音頻');
-      }
+      if (loadedCount === 0) throw new Error('沒有任何音符被載入');
+
     } catch (error) {
-      console.error('❌ Sound 對象初始化失敗:', error);
-      console.log('💡 將使用簡化模式（無聲音）');
-      this.updateInitProgress(90);
+      console.error('Mobile 音頻載入嚴重錯誤:', error);
     }
   }
 
@@ -510,19 +434,19 @@ class AudioManager {
     }
 
     if (this.isWeb) {
-      // 確保 AudioContext 處於運行狀態
+      // ✅ 這裡才是正確喚醒 AudioContext 的地方
+      // 因為 playNote 通常是由使用者點擊觸發的，瀏覽器允許這裡 resume
       if (this.audioContext && this.audioContext.state === 'suspended') {
         try {
-          await this.audioContext.resume();
+          // 不使用 await，避免阻塞播放，讓它在背景恢復
+          this.audioContext.resume().catch(() => {});
         } catch (e) {
           console.warn('AudioContext resume 失敗:', e);
         }
       }
       
-      // Web 環境使用 Web Audio API
       this.playNoteWeb(noteName, duration);
     } else {
-      // Mobile 環境使用音頻池
       this.playNoteMobile(noteName, duration);
     }
   }
