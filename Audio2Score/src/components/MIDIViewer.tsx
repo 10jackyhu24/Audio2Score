@@ -1,4 +1,3 @@
-// components/MIDIViewer.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -8,8 +7,10 @@ import {
   ActivityIndicator,
   Alert,
   PanResponder,
-  GestureResponderEvent
+  GestureResponderEvent,
+  Platform
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import PianoKeyboard from './PianoKeyboard';
 import FallingNotes from './FallingNotes';
 import AudioManager from '../utils/AudioManager';
@@ -39,7 +40,13 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   const progressBarRef = useRef<View>(null);
   const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [volume, setVolume] = useState<number>(0.5); // 預設音量 50%
   const playedNotesRef = useRef<Set<string>>(new Set()); // 追蹤已播放的音符（使用唯一ID）
+
+  // 初始化音量設置
+  useEffect(() => {
+    AudioManager.setVolume(0.5);
+  }, []);
 
   // 加載 MIDI 文件
   useEffect(() => {
@@ -201,6 +208,11 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     setKeyboardWidth(width);
   };
 
+  const handleVolumeChange = (newVolume: number): void => {
+    setVolume(newVolume);
+    AudioManager.setVolume(newVolume);
+  };
+
   const handleProgressBarPress = (event: GestureResponderEvent): void => {
     if (duration === 0) return;
     
@@ -291,6 +303,38 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
             
             <View style={styles.speedControl}>
               <Text style={styles.speedText}>速度: {speed}x</Text>
+            </View>
+            
+            {/* 音量控制 */}
+            <View style={styles.volumeControl}>
+              <Text style={styles.volumeIcon}>🔊</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(volume * 100)}
+                  onChange={(e: any) => handleVolumeChange(parseInt(e.target.value) / 100)}
+                  style={{
+                    flex: 1,
+                    height: '6px',
+                    cursor: 'pointer',
+                    accentColor: '#007AFF',
+                  }}
+                />
+              ) : (
+                <Slider
+                  style={styles.volumeSlider}
+                  minimumValue={0}
+                  maximumValue={1}
+                  value={volume}
+                  onValueChange={handleVolumeChange}
+                  minimumTrackTintColor="#007AFF"
+                  maximumTrackTintColor="#dee2e6"
+                  thumbTintColor="#007AFF"
+                />
+              )}
+              <Text style={styles.volumeText}>{Math.round(volume * 100)}%</Text>
             </View>
             
             {/* 時間顯示 */}
@@ -413,6 +457,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#495057',
     fontWeight: '500',
+  },
+  volumeControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    minWidth: 120,
+    maxWidth: 180,
+  },
+  volumeIcon: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  volumeSlider: {
+    flex: 1,
+    height: 40,
+  },
+  volumeText: {
+    fontSize: 12,
+    color: '#495057',
+    fontWeight: '600',
+    minWidth: 35,
+    textAlign: 'right',
+    marginLeft: 6,
   },
   timeText: {
     marginLeft: 'auto',
