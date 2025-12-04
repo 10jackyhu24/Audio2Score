@@ -36,6 +36,7 @@ class AudioManager {
   
   // 音頻文件映射
   private audioFileMap: { [key: string]: any };
+  private currentVolume: number;
 
   constructor() {
     this.audioContext = null;
@@ -53,6 +54,7 @@ class AudioManager {
     this.audioBuffers = new Map();
     this.activeBufferSources = new Map();
     this.audioFileMap = {};
+    this.currentVolume = 0.5;
     
     // 定義所有音符的頻率（從C0到C8）
     this.noteFrequencies = this.generateNoteFrequencies();
@@ -253,7 +255,7 @@ class AudioManager {
           compressor.release.value = 0.25;
 
           this.gainNode = this.audioContext.createGain();
-          this.gainNode.gain.value = 0.3;
+          this.gainNode.gain.value = 0.5; // 預設音量 50%
           this.gainNode.connect(compressor);
           compressor.connect(this.audioContext.destination);
 
@@ -348,7 +350,7 @@ class AudioManager {
             audioAsset,
             { 
               shouldPlay: false,
-              volume: 0.3,
+              volume: 0.5, // 預設音量 50%
               rate: 1.0,
               shouldCorrectPitch: false,
               isLooping: false,
@@ -401,7 +403,7 @@ class AudioManager {
                 // 建立 Sound 物件
                 const { sound } = await Audio.Sound.createAsync(
                     module,
-                    { shouldPlay: false, volume: 0.3 }
+                    { shouldPlay: false, volume: 0.5 } // 預設音量 50%
                 );
                 
                 this.soundObjects.set(noteName, sound);
@@ -640,7 +642,7 @@ class AudioManager {
       sound.setStatusAsync({
         rate: 1.0, // 原始速率
         shouldCorrectPitch: false,
-        volume: 0.3,
+        volume: this.currentVolume,
         isLooping: false,
       }).catch(() => {});
       sound.playAsync().catch(() => {});
@@ -725,6 +727,34 @@ class AudioManager {
     } catch (error) {
       console.error('停止所有音符失敗:', error);
     }
+  }
+
+  // 設置主音量（0.0 - 1.0）
+  setVolume(volume: number): void {
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    this.currentVolume = clampedVolume;
+    
+    if (this.isWeb) {
+      if (this.gainNode) {
+        this.gainNode.gain.value = clampedVolume;
+        console.log(`🔊 [Web] 音量設置為: ${(clampedVolume * 100).toFixed(0)}%`);
+      }
+    } else {
+      // Mobile 端：更新所有 Sound 對象的音量
+      for (const [noteName, sound] of this.soundObjects.entries()) {
+        try {
+          sound.setVolumeAsync(clampedVolume).catch(() => {});
+        } catch (error) {
+          // 忽略錯誤
+        }
+      }
+      console.log(`🔊 [Mobile] 音量設置為: ${(clampedVolume * 100).toFixed(0)}%`);
+    }
+  }
+
+  // 獲取當前音量
+  getVolume(): number {
+    return this.currentVolume;
   }
 
   async cleanup(): Promise<void> {
