@@ -6,8 +6,6 @@ import {
   StyleSheet, 
   ActivityIndicator,
   Alert,
-  PanResponder,
-  GestureResponderEvent,
   Platform
 } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -37,9 +35,6 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   const [keyboardWidth, setKeyboardWidth] = useState<number>(0);
   const animationRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
-  const progressBarRef = useRef<View>(null);
-  const [progressBarWidth, setProgressBarWidth] = useState<number>(0);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [volume, setVolume] = useState<number>(0.5); // 預設音量 50%
   const playedNotesRef = useRef<Set<string>>(new Set()); // 追蹤已播放的音符（使用唯一ID）
 
@@ -213,54 +208,44 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
     AudioManager.setVolume(newVolume);
   };
 
-  const handleProgressBarPress = (event: GestureResponderEvent): void => {
-    if (duration === 0) return;
-    
-    const { locationX } = event.nativeEvent;
-    const progressPercent = Math.max(0, Math.min(1, locationX / progressBarWidth));
-    const newTime = progressPercent * duration;
-    
-    setCurrentTime(newTime);
+  // 記錄拖動前的播放狀態
+  const wasPlayingBeforeDragRef = useRef<boolean>(false);
+
+  // 進度條拖動開始
+  const handleProgressDragStart = (): void => {
+    wasPlayingBeforeDragRef.current = isPlaying;
+    if (isPlaying) {
+      setIsPlaying(false);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    }
+  };
+
+  // 進度條值變化
+  const handleProgressChange = (value: number): void => {
+    setCurrentTime(value);
     
     // 清除已播放音符記錄，重新標記已過去的音符
     const currentPlayedNotes = new Set<string>();
     notes.forEach((note, index) => {
       const noteId = `${note.note}-${note.startTime}-${index}`;
-      // 標記已經過去的音符為已播放
-      if (note.startTime < newTime) {
+      if (note.startTime < value) {
         currentPlayedNotes.add(noteId);
       }
     });
     playedNotesRef.current = currentPlayedNotes;
-    
-    if (isPlaying) {
-      startTimeRef.current = Date.now() - (newTime * 1000) / speed;
-    }
   };
 
-  // 創建進度條拖動手勢處理器
-  const progressBarPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (event) => {
-        setIsDragging(true);
-        if (isPlaying) {
-          setIsPlaying(false);
-          if (animationRef.current) {
-            cancelAnimationFrame(animationRef.current);
-          }
-        }
-        handleProgressBarPress(event);
-      },
-      onPanResponderMove: (event) => {
-        handleProgressBarPress(event);
-      },
-      onPanResponderRelease: () => {
-        setIsDragging(false);
-      },
-    })
-  ).current;
+  // 進度條拖動結束
+  const handleProgressDragEnd = (): void => {
+    if (wasPlayingBeforeDragRef.current) {
+      // 如果拖動前正在播放，則恢復播放
+      setIsPlaying(true);
+      startTimeRef.current = Date.now() - (currentTime * 1000) / speed;
+      animate();
+    }
+  };
 
   // 格式化時間顯示
   const formatTime = (seconds: number): string => {
@@ -344,30 +329,19 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
           </View>
           
           {/* 進度條 */}
-          <View 
-            style={styles.progressContainer}
-            onLayout={(event) => setProgressBarWidth(event.nativeEvent.layout.width)}
-          >
-            <View 
-              ref={progressBarRef}
-              style={styles.progressBarBackground}
-              {...progressBarPanResponder.panHandlers}
-            >
-              {/* 已播放部分 */}
-              <View 
-                style={[
-                  styles.progressBarFill, 
-                  { width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }
-                ]} 
-              />
-              {/* 拖動手柄 */}
-              <View 
-                style={[
-                  styles.progressThumb,
-                  { left: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }
-                ]}
-              />
-            </View>
+          <View style={styles.progressContainer}>
+            <Slider
+              style={styles.progressSlider}
+              minimumValue={0}
+              maximumValue={duration > 0 ? duration : 100}
+              value={currentTime}
+              onSlidingStart={handleProgressDragStart}
+              onValueChange={handleProgressChange}
+              onSlidingComplete={handleProgressDragEnd}
+              minimumTrackTintColor="#007AFF"
+              maximumTrackTintColor="#dee2e6"
+              thumbTintColor="#007AFF"
+            />
           </View>
         </>
       )}
@@ -494,36 +468,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#dee2e6',
   },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: '#dee2e6',
-    borderRadius: 3,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    height: '100%',
-    backgroundColor: '#007AFF',
-    borderRadius: 3,
-  },
-  progressThumb: {
-    position: 'absolute',
-    top: -5,
-    width: 16,
-    height: 16,
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
-    marginLeft: -8,
-    borderWidth: 2,
-    borderColor: 'white',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
+  progressSlider: {
+    width: '100%',
+    height: 40,
   },
 });
 
