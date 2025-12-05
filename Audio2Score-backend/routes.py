@@ -300,9 +300,9 @@ async def get_current_user(user = Depends(get_current_user_from_token)):
     }
 
 # 創建專門處理上傳的路由
-upload_router = APIRouter(prefix="/api", tags=["File Upload"])
+upload_router = APIRouter(prefix="/api/upload", tags=["File Upload"])
 
-@upload_router.post("/upload")
+@upload_router.post("")
 async def upload_file(
     file: UploadFile = File(...),
     user = Depends(get_current_user_from_token)
@@ -486,4 +486,185 @@ async def delete_user_file(
         return JSONResponse(
             status_code=500,
             content={"error": f"刪除檔案失敗: {str(e)}"}
+        )
+
+# ==================== Library API ====================
+
+@upload_router.post("/library/save")
+async def save_to_library(
+    request: Request,
+    user = Depends(get_current_user_from_token)
+):
+    """保存檔案記錄到圖書館"""
+    try:
+        data = await request.json()
+        
+        pool = database.get_pool()
+        if not pool:
+            raise HTTPException(status_code=503, detail="資料庫連線失敗")
+        
+        async with pool.acquire() as conn:
+            record_id = await conn.fetchval('''
+                INSERT INTO file_records (
+                    user_id, original_filename, saved_filename, file_type, file_size,
+                    wav_filename, midi_filename
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id
+            ''', 
+                user['id'],
+                data.get('original_filename'),
+                data.get('saved_filename'),
+                data.get('file_type'),
+                data.get('file_size', 0),
+                data.get('wav_filename'),
+                data.get('midi_filename')
+            )
+        
+        print(f"✅ 保存檔案記錄: {user['username']} - {data.get('original_filename')}")
+        return {"status": "success", "record_id": record_id}
+    
+    except Exception as e:
+        print(f"❌ 保存檔案記錄錯誤: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"保存失敗: {str(e)}"}
+        )
+
+@upload_router.get("/library")
+async def get_library(
+    sort_by: str = "date",
+    filter_type: str = "all",
+    search: str = "",
+    user = Depends(get_current_user_from_token)
+):
+    """獲取使用者的圖書館檔案列表"""
+    try:
+        pool = database.get_pool()
+        if not pool:
+            raise HTTPException(status_code=503, detail="資料庫連線失敗")
+        
+        async with pool.acquire() as conn:
+            query = '''
+                SELECT id, original_filename, saved_filename, file_type, file_size,
+                       wav_filename, midi_filename, is_favorited, upload_date, created_at
+                FROM file_records
+                WHERE user_id = $1
+            '''
+            params = [user['id']]
+            
+            if filter_type == "favorites":
+                query += " AND is_favorited = TRUE"
+            elif filter_type == "midi":
+                query += " AND midi_filename IS NOT NULL"
+            
+            if search:
+                query += " AND original_filename ILIKE $" + str(len(params) + 1)
+                params.append(f"%{search}%")
+            
+            if sort_by == "name":
+                query += " ORDER BY original_filename ASC"
+            else:
+                query += " ORDER BY upload_date DESC"
+            
+            records = await conn.fetch(query, *params)
+            
+            files = []
+            for record in records:
+                files.append({
+                    "id": record['id'],
+                    "original_filename": record['original_filename'],
+                    "saved_filename": record['saved_filename'],
+                    "file_type": record['file_type'],
+                    "file_size": record['file_size'],
+                    "wav_filename": record['wav_filename'],
+                    "midi_filename": record['midi_filename'],
+                    "is_favorited": record['is_favorited'],
+                    "upload_date": record['upload_date'].isoformat() if record['upload_date'] else None,
+                    "created_at": record['created_at'].isoformat() if record['created_at'] else None
+                })
+        
+        return {"files": files, "total": len(files)}
+    
+    except Exception as e:
+        print(f"❌ 獲取圖書館錯誤: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"獲取失敗: {str(e)}"}
+        )
+
+@upload_router.post("/library/{file_id}/favorite")
+async def toggle_favorite(
+    file_id: int,
+    user = Depends(get_current_user_from_token)
+):
+    """切換收藏狀態"""
+    try:
+        pool = database.get_pool()
+        if not pool:
+            raise HTTPException(status_code=503, detail="資料庫連線失敗")
+        
+        async with pool.acquire() as conn:
+            record = await conn.fetchrow('''
+                SELECT id, is_favorited FROM file_records
+                WHERE id = $1 AND user_id = $2
+            ''', file_id, user['id'])
+            
+            if not record:
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": "檔案不存在"}
+                )
+            
+            new_status = not record['is_favorited']
+            await conn.execute('''
+                UPDATE file_records
+                SET is_favorited = $1
+                WHERE id = $2
+            ''', new_status, file_id)
+        
+        print(f"✅ 切換收藏: {file_id} -> {new_status}")
+        return {"status": "success", "is_favorited": new_status}
+    
+    except Exception as e:
+        print(f"❌ 切換收藏錯誤: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"切換失敗: {str(e)}"}
+        )
+
+@upload_router.delete("/library/{file_id}")
+async def delete_library_file(
+    file_id: int,
+    user = Depends(get_current_user_from_token)
+):
+    """從圖書館刪除檔案記錄"""
+    try:
+        pool = database.get_pool()
+        if not pool:
+            raise HTTPException(status_code=503, detail="資料庫連線失敗")
+        
+        async with pool.acquire() as conn:
+            record = await conn.fetchrow('''
+                SELECT * FROM file_records
+                WHERE id = $1 AND user_id = $2
+            ''', file_id, user['id'])
+            
+            if not record:
+                return JSONResponse(
+                    status_code=404,
+                    content={"error": "檔案不存在"}
+                )
+            
+            await conn.execute('''
+                DELETE FROM file_records WHERE id = $1
+            ''', file_id)
+        
+        print(f"✅ 刪除檔案記錄: {file_id}")
+        return {"status": "success", "message": "檔案刪除成功"}
+    
+    except Exception as e:
+        print(f"❌ 刪除檔案記錄錯誤: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"刪除失敗: {str(e)}"}
         )

@@ -1,11 +1,10 @@
 # start_services.ps1
 
 # Define path variables
-$projectPath = "D:\Programing\Artificial_Intelligence\Audio2Score"
+$projectPath = "D:\code\Audio2Score"
 $backendPath = "$projectPath\Audio2Score-backend"
 $frontendPath = "$projectPath\Audio2Score"
-$condaEnvPath = "D:\Anaconda3\envs\Audio2Score"
-
+$condaEnvPath = "C:\Users\Yuchen\anaconda3\envs\audio2score"
 # Function to extract ngrok URL
 function Get-NgrokUrl {
     Write-Host "Waiting for ngrok URL..." -ForegroundColor Yellow

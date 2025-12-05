@@ -1,5 +1,5 @@
 // src/screens/MidiPlayerScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,15 +16,26 @@ import { useTheme } from '../context/ThemeContext';
 import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { MIDIData } from '../types/midi';
+import { useRoute } from '@react-navigation/native';
 
 export const MidiPlayerScreen = () => {
   const { colors, isDarkMode } = useTheme();
   const { scale } = useFontSize();
+  const route = useRoute();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [midiData, setMidiData] = useState<MIDIData | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+
+  // 从导航参数加载 MIDI
+  useEffect(() => {
+    const params = route.params as { midiUrl?: string; filename?: string } | undefined;
+    if (params?.midiUrl) {
+      setSelectedFile(params.midiUrl);
+      setFileName(params.filename || 'Library MIDI');
+    }
+  }, [route.params]);
 
   const handleLoadComplete = (data: MIDIData) => {
     setMidiData(data);
