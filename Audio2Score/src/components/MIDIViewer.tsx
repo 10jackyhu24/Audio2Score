@@ -310,7 +310,8 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
                   minimumValue={0}
                   maximumValue={1}
                   value={volume}
-                  onValueChange={handleVolumeChange}
+                  onSlidingComplete={handleVolumeChange}
+                  onValueChange={setVolume}
                   minimumTrackTintColor="#007AFF"
                   maximumTrackTintColor="#dee2e6"
                   thumbTintColor="#007AFF"
@@ -425,8 +426,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    minWidth: 120,
-    maxWidth: 180,
+    minWidth: 180,
+    maxWidth: 280,
   },
   volumeIcon: {
     fontSize: 16,

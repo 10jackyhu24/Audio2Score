@@ -93,14 +93,6 @@ export const MidiPlayerScreen = () => {
     setMidiData(null);
   };
 
-  const speedOptions = [
-    { label: '0.5x', value: 0.5 },
-    { label: '0.75x', value: 0.75 },
-    { label: '1x', value: 1.0 },
-    { label: '1.25x', value: 1.25 },
-    { label: '1.5x', value: 1.5 },
-  ];
-
   return (
     <SafeAreaView 
       style={[styles.container, { backgroundColor: colors.background }]} 
@@ -242,64 +234,6 @@ export const MidiPlayerScreen = () => {
           )}
         </View>
 
-        {/* 播放速度控制 */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.lg * scale,
-              },
-            ]}
-          >
-            播放速度
-          </Text>
-          
-          <View style={styles.speedOptions}>
-            {speedOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.speedButton,
-                  {
-                    backgroundColor: playbackSpeed === option.value
-                      ? colors.primary
-                      : isDarkMode
-                      ? '#3b3b3b'
-                      : 'white',
-                    borderColor: playbackSpeed === option.value
-                      ? colors.primary
-                      : isDarkMode
-                      ? '#4b4b4b'
-                      : '#ddd',
-                  },
-                ]}
-                onPress={() => setPlaybackSpeed(option.value)}
-              >
-                <Text
-                  style={[
-                    styles.speedText,
-                    {
-                      color: playbackSpeed === option.value
-                        ? 'white'
-                        : colors.text,
-                      fontSize: FONT_SIZES.sm * scale,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         {/* MIDI 播放器 */}
         {selectedFile ? (
           <View
@@ -407,17 +341,6 @@ export const MidiPlayerScreen = () => {
                 },
               ]}
             >
-              • 調整播放速度以適應不同的練習需求
-            </Text>
-            <Text
-              style={[
-                styles.infoItem,
-                {
-                  color: isDarkMode ? 'rgba(255,255,255,0.8)' : '#555',
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
               • 觀察下落的音符與鋼琴鍵盤互動
             </Text>
           </View>
@@ -509,22 +432,6 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontWeight: '700',
     lineHeight: 20,
-  },
-  speedOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  speedButton: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 999,
-    borderWidth: 2,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  speedText: {
-    fontWeight: '600',
   },
   midiViewerContainer: {
     marginTop: SPACING.sm,

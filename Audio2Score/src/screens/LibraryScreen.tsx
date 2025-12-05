@@ -11,6 +11,7 @@ import {
   Linking,
   RefreshControl,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -171,49 +172,76 @@ export const LibraryScreen = () => {
 
   const confirmBatchDelete = async () => {
     if (selectedForDelete.size === 0) {
-      Alert.alert('提示', '請先選擇要刪除的檔案');
+      if (Platform.OS === 'web') {
+        // @ts-ignore - web platform specific
+        global.alert?.('請先選擇要刪除的檔案') || Alert.alert('提示', '請先選擇要刪除的檔案');
+      } else {
+        Alert.alert('提示', '請先選擇要刪除的檔案');
+      }
       return;
     }
 
-    Alert.alert(
-      '確認刪除',
-      `確定要刪除選中的 ${selectedForDelete.size} 個檔案嗎？`,
-      [
-        { text: '取消', style: 'cancel' },
-        {
-          text: '刪除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const token = await getStoredToken();
-              if (!token) return;
+    const performDelete = async () => {
+      try {
+        const token = await getStoredToken();
+        if (!token) return;
 
-              // 批次刪除
-              const deletePromises = Array.from(selectedForDelete).map(fileId =>
-                fetch(`${API_URL}/upload/library/${fileId}`, {
-                  method: 'DELETE',
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'ngrok-skip-browser-warning': 'true',
-                  },
-                })
-              );
+        // 批次刪除
+        const deletePromises = Array.from(selectedForDelete).map(fileId =>
+          fetch(`${API_URL}/upload/library/${fileId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'ngrok-skip-browser-warning': 'true',
+            },
+          })
+        );
 
-              await Promise.all(deletePromises);
+        await Promise.all(deletePromises);
 
-              // 更新檔案列表
-              setFiles(prevFiles => prevFiles.filter(file => !selectedForDelete.has(file.id)));
-              setSelectedForDelete(new Set());
-              setDeleteMode(false);
-              Alert.alert('成功', `已刪除 ${selectedForDelete.size} 個檔案`);
-            } catch (error) {
-              console.error('❌ 批次刪除錯誤:', error);
-              Alert.alert('錯誤', '刪除失敗');
-            }
+        // 更新檔案列表
+        setFiles(prevFiles => prevFiles.filter(file => !selectedForDelete.has(file.id)));
+        const count = selectedForDelete.size;
+        setSelectedForDelete(new Set());
+        setDeleteMode(false);
+        
+        if (Platform.OS === 'web') {
+          // @ts-ignore - web platform specific
+          global.alert?.(`已刪除 ${count} 個檔案`) || Alert.alert('成功', `已刪除 ${count} 個檔案`);
+        } else {
+          Alert.alert('成功', `已刪除 ${count} 個檔案`);
+        }
+      } catch (error) {
+        console.error('❌ 批次刪除錯誤:', error);
+        if (Platform.OS === 'web') {
+          // @ts-ignore - web platform specific
+          global.alert?.('刪除失敗') || Alert.alert('錯誤', '刪除失敗');
+        } else {
+          Alert.alert('錯誤', '刪除失敗');
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      // @ts-ignore - web platform specific
+      const confirmed = global.confirm?.(`確定要刪除選中的 ${selectedForDelete.size} 個檔案嗎？`);
+      if (confirmed) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        '確認刪除',
+        `確定要刪除選中的 ${selectedForDelete.size} 個檔案嗎？`,
+        [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '刪除',
+            style: 'destructive',
+            onPress: performDelete,
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   const deleteFile = async (fileId: number) => {
@@ -282,48 +310,48 @@ export const LibraryScreen = () => {
       {/* 篩選和排序 */}
       <View style={styles.filterBar}>
         <View style={styles.filterButtons}>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filterType === 'all' && !deleteMode && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => !deleteMode && setFilterType('all')}
-            disabled={deleteMode}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                { 
-                  color: filterType === 'all' && !deleteMode ? 'white' : colors.text, 
-                  fontSize: FONT_SIZES.sm * scale,
-                  opacity: deleteMode ? 0.5 : 1,
-                },
-              ]}
-            >
-              全部
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              filterType === 'favorites' && !deleteMode && { backgroundColor: colors.primary },
-            ]}
-            onPress={() => !deleteMode && setFilterType('favorites')}
-            disabled={deleteMode}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                {
-                  color: filterType === 'favorites' && !deleteMode ? 'white' : colors.text,
-                  fontSize: FONT_SIZES.sm * scale,
-                  opacity: deleteMode ? 0.5 : 1,
-                },
-              ]}
-            >
-              ⭐ 收藏
-            </Text>
-          </TouchableOpacity>
+          {!deleteMode && (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.filterButton,
+                  filterType === 'all' && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => setFilterType('all')}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    { 
+                      color: filterType === 'all' ? 'white' : colors.text, 
+                      fontSize: FONT_SIZES.sm * scale,
+                    },
+                  ]}
+                >
+                  全部
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.filterButton,
+                  filterType === 'favorites' && { backgroundColor: colors.primary },
+                ]}
+                onPress={() => setFilterType('favorites')}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    {
+                      color: filterType === 'favorites' ? 'white' : colors.text,
+                      fontSize: FONT_SIZES.sm * scale,
+                    },
+                  ]}
+                >
+                  ⭐ 收藏
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
           <TouchableOpacity
             style={[
               styles.filterButton,
