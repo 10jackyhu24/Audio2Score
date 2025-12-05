@@ -25,6 +25,7 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   onPlaybackEnd,
   showControls = true,
   height = 500,
+  authToken,
 }) => {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -63,14 +64,14 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
       let parsedData: MIDIData | null = null;
 
       if (midiData) {
-        // 直接使用傳入的 MIDI 數據
+        // 直接使用傳入的 MIDI 資料
         parsedData = midiData;
       } else if (midiFilePath) {
-        // 從本地文件路徑加載
+        // 從本機檔案路徑載入
         parsedData = await MIDIParser.parseMidiFile(midiFilePath);
       } else if (midiUrl) {
-        // 從 URL 加載
-        parsedData = await MIDIParser.parseMidiUrl(midiUrl);
+        // 從 URL 載入
+        parsedData = await MIDIParser.parseMidiUrl(midiUrl, authToken || undefined);
       }
 
       if (parsedData && parsedData.notes) {
@@ -79,11 +80,11 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
         setCurrentTime(0);
         
         onLoadComplete && onLoadComplete(parsedData);
-        console.log('MIDI 加載成功，音符數量:', parsedData.notes.length);
+        console.log('MIDI 載入成功，音符數量:', parsedData.notes.length);
       }
     } catch (error) {
-      console.error('加載 MIDI 失敗:', error);
-      Alert.alert('錯誤', '無法加載 MIDI 文件');
+      console.error('載入 MIDI 失敗:', error);
+      Alert.alert('錯誤', '無法載入 MIDI 檔案');
     } finally {
       setIsLoading(false);
     }
@@ -286,10 +287,6 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
               <Text style={styles.controlText}>⏹️ 停止</Text>
             </TouchableOpacity>
             
-            <View style={styles.speedControl}>
-              <Text style={styles.speedText}>速度: {speed}x</Text>
-            </View>
-            
             {/* 音量控制 */}
             <View style={styles.volumeControl}>
               <Text style={styles.volumeIcon}>🔊</Text>
@@ -423,14 +420,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
-  },
-  speedControl: {
-    paddingHorizontal: 12,
-  },
-  speedText: {
-    fontSize: 14,
-    color: '#495057',
-    fontWeight: '500',
   },
   volumeControl: {
     flexDirection: 'row',

@@ -17,6 +17,7 @@ import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { MIDIData } from '../types/midi';
 import { useRoute } from '@react-navigation/native';
+import { getStoredToken } from '../services/authService';
 
 export const MidiPlayerScreen = () => {
   const { colors, isDarkMode } = useTheme();
@@ -27,19 +28,29 @@ export const MidiPlayerScreen = () => {
   const [midiData, setMidiData] = useState<MIDIData | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
-  // 从导航参数加载 MIDI
+  // 獲取認證token
+  useEffect(() => {
+    const loadToken = async () => {
+      const token = await getStoredToken();
+      setAuthToken(token);
+    };
+    loadToken();
+  }, []);
+
+  // 從導覽參數載入 MIDI
   useEffect(() => {
     const params = route.params as { midiUrl?: string; filename?: string } | undefined;
     if (params?.midiUrl) {
       setSelectedFile(params.midiUrl);
-      setFileName(params.filename || 'Library MIDI');
+      setFileName(params.filename || '圖書館 MIDI');
     }
   }, [route.params]);
 
   const handleLoadComplete = (data: MIDIData) => {
     setMidiData(data);
-    console.log('MIDI 加載完成:', data);
+    console.log('MIDI 載入完成:', data);
   };
 
   const handlePlaybackEnd = () => {
@@ -93,7 +104,7 @@ export const MidiPlayerScreen = () => {
   return (
     <SafeAreaView 
       style={[styles.container, { backgroundColor: colors.background }]} 
-      edges={['bottom']}
+      edges={['top', 'bottom']}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* 標題區域 */}
@@ -311,13 +322,14 @@ export const MidiPlayerScreen = () => {
             
             <View style={styles.midiViewerContainer}>
               <MIDIViewer
-                midiFilePath={selectedFile}
+                midiUrl={selectedFile}
                 autoPlay={false}
                 speed={playbackSpeed}
                 onLoadComplete={handleLoadComplete}
                 onPlaybackEnd={handlePlaybackEnd}
                 showControls={true}
                 height={500}
+                authToken={authToken}
               />
             </View>
           </View>

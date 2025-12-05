@@ -47,6 +47,8 @@ export const LibraryScreen = () => {
   const [sortBy, setSortBy] = useState<SortType>('date');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [downloadMenuVisible, setDownloadMenuVisible] = useState<number | null>(null);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedForDelete, setSelectedForDelete] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     loadLibrary();
@@ -144,11 +146,74 @@ export const LibraryScreen = () => {
     const midiUrl = `${API_URL}/files/${file.midi_filename}`;
     console.log('🎵 播放 MIDI:', midiUrl);
     
-    // 导航到 MIDI 播放器页面
+    // 導覽到 MIDI 播放器頁面
     (navigation as any).navigate('MidiPlayer', { 
       midiUrl,
       filename: file.original_filename 
     });
+  };
+
+  const toggleDeleteMode = () => {
+    setDeleteMode(!deleteMode);
+    setSelectedForDelete(new Set());
+    setDownloadMenuVisible(null);
+  };
+
+  const toggleSelectForDelete = (fileId: number) => {
+    const newSelected = new Set(selectedForDelete);
+    if (newSelected.has(fileId)) {
+      newSelected.delete(fileId);
+    } else {
+      newSelected.add(fileId);
+    }
+    setSelectedForDelete(newSelected);
+  };
+
+  const confirmBatchDelete = async () => {
+    if (selectedForDelete.size === 0) {
+      Alert.alert('提示', '請先選擇要刪除的檔案');
+      return;
+    }
+
+    Alert.alert(
+      '確認刪除',
+      `確定要刪除選中的 ${selectedForDelete.size} 個檔案嗎？`,
+      [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '刪除',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await getStoredToken();
+              if (!token) return;
+
+              // 批次刪除
+              const deletePromises = Array.from(selectedForDelete).map(fileId =>
+                fetch(`${API_URL}/upload/library/${fileId}`, {
+                  method: 'DELETE',
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    'ngrok-skip-browser-warning': 'true',
+                  },
+                })
+              );
+
+              await Promise.all(deletePromises);
+
+              // 更新檔案列表
+              setFiles(prevFiles => prevFiles.filter(file => !selectedForDelete.has(file.id)));
+              setSelectedForDelete(new Set());
+              setDeleteMode(false);
+              Alert.alert('成功', `已刪除 ${selectedForDelete.size} 個檔案`);
+            } catch (error) {
+              console.error('❌ 批次刪除錯誤:', error);
+              Alert.alert('錯誤', '刪除失敗');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const deleteFile = async (fileId: number) => {
@@ -196,7 +261,7 @@ export const LibraryScreen = () => {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* 搜尋欄 */}
       <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' }]}>
         <Text style={styles.searchIcon}>🔍</Text>
@@ -220,14 +285,19 @@ export const LibraryScreen = () => {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              filterType === 'all' && { backgroundColor: colors.primary },
+              filterType === 'all' && !deleteMode && { backgroundColor: colors.primary },
             ]}
-            onPress={() => setFilterType('all')}
+            onPress={() => !deleteMode && setFilterType('all')}
+            disabled={deleteMode}
           >
             <Text
               style={[
                 styles.filterText,
-                { color: filterType === 'all' ? 'white' : colors.text, fontSize: FONT_SIZES.sm * scale },
+                { 
+                  color: filterType === 'all' && !deleteMode ? 'white' : colors.text, 
+                  fontSize: FONT_SIZES.sm * scale,
+                  opacity: deleteMode ? 0.5 : 1,
+                },
               ]}
             >
               全部
@@ -236,22 +306,64 @@ export const LibraryScreen = () => {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              filterType === 'favorites' && { backgroundColor: colors.primary },
+              filterType === 'favorites' && !deleteMode && { backgroundColor: colors.primary },
             ]}
-            onPress={() => setFilterType('favorites')}
+            onPress={() => !deleteMode && setFilterType('favorites')}
+            disabled={deleteMode}
           >
             <Text
               style={[
                 styles.filterText,
                 {
-                  color: filterType === 'favorites' ? 'white' : colors.text,
+                  color: filterType === 'favorites' && !deleteMode ? 'white' : colors.text,
                   fontSize: FONT_SIZES.sm * scale,
+                  opacity: deleteMode ? 0.5 : 1,
                 },
               ]}
             >
               ⭐ 收藏
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              deleteMode && { backgroundColor: '#e74c3c' },
+            ]}
+            onPress={toggleDeleteMode}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                {
+                  color: deleteMode ? 'white' : colors.text,
+                  fontSize: FONT_SIZES.sm * scale,
+                },
+              ]}
+            >
+              {deleteMode ? '✕ 取消' : '🗑️ 刪除模式'}
+            </Text>
+          </TouchableOpacity>
+          {deleteMode && (
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { backgroundColor: '#c0392b' },
+              ]}
+              onPress={confirmBatchDelete}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  {
+                    color: 'white',
+                    fontSize: FONT_SIZES.sm * scale,
+                  },
+                ]}
+              >
+                ✓ 確認刪除
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity
@@ -288,7 +400,9 @@ export const LibraryScreen = () => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
           }
         >
-          {files.map((file) => (
+          {files
+            .filter(file => !deleteMode || !file.is_favorited)
+            .map((file) => (
             <View
               key={file.id}
               style={[styles.fileCard, { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' }]}
@@ -300,9 +414,20 @@ export const LibraryScreen = () => {
               <View style={styles.fileInfo}>
                 <TouchableOpacity
                   style={styles.fileIconContainer}
-                  onPress={() => playMidiFile(file)}
+                  onPress={() => deleteMode ? toggleSelectForDelete(file.id) : playMidiFile(file)}
                 >
-                  <Text style={styles.fileIcon}>🎵</Text>
+                  {deleteMode ? (
+                    <View style={[
+                      styles.selectCircle,
+                      selectedForDelete.has(file.id) && styles.selectCircleSelected
+                    ]}>
+                      {selectedForDelete.has(file.id) && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </View>
+                  ) : (
+                    <Text style={styles.fileIcon}>🎵</Text>
+                  )}
                 </TouchableOpacity>
                 <View style={styles.fileDetails}>
                   <Text
@@ -326,7 +451,7 @@ export const LibraryScreen = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* 下载菜单 */}
+              {/* 下載選單 */}
               {downloadMenuVisible === file.id && (
                 <View style={[styles.downloadMenu, { backgroundColor: isDarkMode ? '#1a1a1a' : '#fff' }]}>
                   {file.wav_filename && (
@@ -508,5 +633,24 @@ const styles = StyleSheet.create({
   downloadMenuText: {
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
+  },
+  selectCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#999',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  selectCircleSelected: {
+    backgroundColor: '#3498db',
+    borderColor: '#3498db',
+  },
+  checkmark: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
