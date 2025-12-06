@@ -31,7 +31,7 @@ export const HomeScreen = () => {
           { backgroundColor: 'rgba(0, 0, 0, 0.45)' }, // can tweak for dark/light later
         ]}
       >
-        <SafeAreaView style={{ flex: 1 }} edges={['bottom']}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
           <View style={styles.greetingCard}>
             <Text

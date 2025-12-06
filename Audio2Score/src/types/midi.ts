@@ -24,6 +24,7 @@ export interface MIDIViewerProps {
   onPlaybackEnd?: () => void;
   showControls?: boolean;
   height?: number;
+  authToken?: string | null;
 }
 
 export interface FallingNotesProps {

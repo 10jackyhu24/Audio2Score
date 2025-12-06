@@ -1,5 +1,5 @@
 // src/screens/MidiPlayerScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,19 +16,41 @@ import { useTheme } from '../context/ThemeContext';
 import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { MIDIData } from '../types/midi';
+import { useRoute } from '@react-navigation/native';
+import { getStoredToken } from '../services/authService';
 
 export const MidiPlayerScreen = () => {
   const { colors, isDarkMode } = useTheme();
   const { scale } = useFontSize();
+  const route = useRoute();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [midiData, setMidiData] = useState<MIDIData | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+  // 獲取認證token
+  useEffect(() => {
+    const loadToken = async () => {
+      const token = await getStoredToken();
+      setAuthToken(token);
+    };
+    loadToken();
+  }, []);
+
+  // 從導覽參數載入 MIDI
+  useEffect(() => {
+    const params = route.params as { midiUrl?: string; filename?: string } | undefined;
+    if (params?.midiUrl) {
+      setSelectedFile(params.midiUrl);
+      setFileName(params.filename || '圖書館 MIDI');
+    }
+  }, [route.params]);
 
   const handleLoadComplete = (data: MIDIData) => {
     setMidiData(data);
-    console.log('MIDI 加載完成:', data);
+    console.log('MIDI 載入完成:', data);
   };
 
   const handlePlaybackEnd = () => {
@@ -71,18 +93,10 @@ export const MidiPlayerScreen = () => {
     setMidiData(null);
   };
 
-  const speedOptions = [
-    { label: '0.5x', value: 0.5 },
-    { label: '0.75x', value: 0.75 },
-    { label: '1x', value: 1.0 },
-    { label: '1.25x', value: 1.25 },
-    { label: '1.5x', value: 1.5 },
-  ];
-
   return (
     <SafeAreaView 
       style={[styles.container, { backgroundColor: colors.background }]} 
-      edges={['bottom']}
+      edges={['top', 'bottom']}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* 標題區域 */}
@@ -220,64 +234,6 @@ export const MidiPlayerScreen = () => {
           )}
         </View>
 
-        {/* 播放速度控制 */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.lg * scale,
-              },
-            ]}
-          >
-            播放速度
-          </Text>
-          
-          <View style={styles.speedOptions}>
-            {speedOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.speedButton,
-                  {
-                    backgroundColor: playbackSpeed === option.value
-                      ? colors.primary
-                      : isDarkMode
-                      ? '#3b3b3b'
-                      : 'white',
-                    borderColor: playbackSpeed === option.value
-                      ? colors.primary
-                      : isDarkMode
-                      ? '#4b4b4b'
-                      : '#ddd',
-                  },
-                ]}
-                onPress={() => setPlaybackSpeed(option.value)}
-              >
-                <Text
-                  style={[
-                    styles.speedText,
-                    {
-                      color: playbackSpeed === option.value
-                        ? 'white'
-                        : colors.text,
-                      fontSize: FONT_SIZES.sm * scale,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
         {/* MIDI 播放器 */}
         {selectedFile ? (
           <View
@@ -300,13 +256,14 @@ export const MidiPlayerScreen = () => {
             
             <View style={styles.midiViewerContainer}>
               <MIDIViewer
-                midiFilePath={selectedFile}
+                midiUrl={selectedFile}
                 autoPlay={false}
                 speed={playbackSpeed}
                 onLoadComplete={handleLoadComplete}
                 onPlaybackEnd={handlePlaybackEnd}
                 showControls={true}
                 height={500}
+                authToken={authToken}
               />
             </View>
           </View>
@@ -374,17 +331,6 @@ export const MidiPlayerScreen = () => {
               ]}
             >
               • 使用播放控制按鈕控制播放、暫停和進度
-            </Text>
-            <Text
-              style={[
-                styles.infoItem,
-                {
-                  color: isDarkMode ? 'rgba(255,255,255,0.8)' : '#555',
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
-              • 調整播放速度以適應不同的練習需求
             </Text>
             <Text
               style={[
@@ -486,22 +432,6 @@ const styles = StyleSheet.create({
   clearButtonText: {
     fontWeight: '700',
     lineHeight: 20,
-  },
-  speedOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
-  },
-  speedButton: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 999,
-    borderWidth: 2,
-    minWidth: 60,
-    alignItems: 'center',
-  },
-  speedText: {
-    fontWeight: '600',
   },
   midiViewerContainer: {
     marginTop: SPACING.sm,
