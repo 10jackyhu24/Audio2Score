@@ -46,6 +46,46 @@ export const RecordScreen = () => {
   const { colors } = useTheme();
   const { scale } = useFontSize();
 
+  // 保存到圖書館
+  const saveToLibrary = async (uploadResult: any) => {
+    try {
+      const token = await getStoredToken();
+      if (!token) return;
+
+      // 构建完整的文件路径（包含用户名目录）
+      const username = uploadResult.user;
+      const wavPath = uploadResult.saved_filename ? `${username}/${uploadResult.saved_filename}` : null;
+      const midiPath = uploadResult.midi_filename ? `${username}/${uploadResult.midi_filename}` : null;
+
+      const libraryData = {
+        original_filename: uploadResult.original_filename || file?.name,
+        saved_filename: uploadResult.saved_filename || uploadResult.filename,
+        file_type: file?.mimeType || 'audio/mpeg',
+        file_size: file?.size || 0,
+        wav_filename: wavPath,
+        midi_filename: midiPath,
+      };
+
+      const response = await fetch(`${API_URL}/upload/library/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify(libraryData),
+      });
+
+      if (response.ok) {
+        console.log('✅ 已保存到圖書館');
+      } else {
+        console.warn('⚠️ 保存到圖書館失敗');
+      }
+    } catch (error) {
+      console.error('❌ 保存到圖書館錯誤:', error);
+    }
+  };
+
   const pickFile = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
@@ -331,6 +371,9 @@ export const RecordScreen = () => {
         setUploadProgress(100);
         console.log('✅ [上傳] 成功:', result);
         
+        // 保存到圖書館
+        await saveToLibrary(result);
+        
         // 獲取 MIDI 文件
         if (result.saved_filename || result.filename) {
           const filename = result.saved_filename || result.filename;
@@ -385,6 +428,9 @@ export const RecordScreen = () => {
           '上傳成功', 
           `檔案 ${result.original_filename || result.filename} 上傳成功！`
         );
+        
+        // 保存到圖書館
+        await saveToLibrary(result);
         
         // 獲取 MIDI 文件
         if (result.saved_filename || result.filename) {
@@ -455,7 +501,7 @@ export const RecordScreen = () => {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'bottom']}>
       <ScrollView 
         style={[
           styles.container,

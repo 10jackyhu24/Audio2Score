@@ -17,15 +17,19 @@ export class MIDIParser {
     }
   }
 
-  static async parseMidiUrl(midiUrl: string): Promise<MIDIData> {
+  static async parseMidiUrl(midiUrl: string, token?: string): Promise<MIDIData> {
     try {
-      console.log('從 URL 加載 MIDI:', midiUrl);
+      console.log('從 URL 載入 MIDI:', midiUrl);
       
-      const response = await fetch(midiUrl, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-        }
-      });
+      const headers: Record<string, string> = {
+        'ngrok-skip-browser-warning': 'true',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(midiUrl, { headers });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -35,7 +39,7 @@ export class MIDIParser {
       
       return this.parseMidiBuffer(arrayBuffer);
     } catch (error) {
-      console.error('從 URL 加載 MIDI 失敗:', error);
+      console.error('從 URL 載入 MIDI 失敗:', error);
       throw error;
     }
   }

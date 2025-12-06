@@ -96,6 +96,31 @@ async def init_db():
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)
             ''')
             
+            # 建立檔案記錄表格 (Library)
+            await conn.execute('''
+                CREATE TABLE IF NOT EXISTS file_records (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    original_filename VARCHAR(255) NOT NULL,
+                    saved_filename VARCHAR(255) NOT NULL,
+                    file_type VARCHAR(50) NOT NULL,
+                    file_size BIGINT,
+                    wav_filename VARCHAR(255),
+                    midi_filename VARCHAR(255),
+                    is_favorited BOOLEAN DEFAULT FALSE,
+                    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 建立檔案記錄索引
+            await conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_file_records_user_id ON file_records(user_id)
+            ''')
+            await conn.execute('''
+                CREATE INDEX IF NOT EXISTS idx_file_records_upload_date ON file_records(upload_date DESC)
+            ''')
+            
             print("✅ 資料庫表格初始化完成")
             
     except Exception as e:
