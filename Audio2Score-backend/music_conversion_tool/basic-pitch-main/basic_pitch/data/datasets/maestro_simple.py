@@ -29,10 +29,11 @@ def setup_audio_processing():
     try:
         import librosa
         import pretty_midi
-        return librosa, pretty_midi
+        import soundfile
+        return librosa, pretty_midi, soundfile
     except ImportError as e:
         logger.error(f"Required library not found: {e}")
-        logger.error("Please install: pip install librosa pretty_midi")
+        logger.error("Please install: pip install librosa pretty_midi soundfile")
         sys.exit(1)
 
 
@@ -79,9 +80,11 @@ def get_track_files(source_dir: str) -> List[dict]:
 
 
 def create_note_labels(midi_path: str, duration: float, hop_size: float = 0.01, 
-                       min_note: int = 21, max_note: int = 108) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+                       min_note: int = 21, max_note: int = 108,
+                       notes_bins_per_semitone: int = 1,
+                       contours_bins_per_semitone: int = 3):
     """
-    Create note, onset, and contour labels from MIDI file
+    Create note, onset, and contour labels from MIDI file in sparse format
     
     Args:
         midi_path: Path to MIDI file
@@ -89,9 +92,12 @@ def create_note_labels(midi_path: str, duration: float, hop_size: float = 0.01,
         hop_size: Time resolution in seconds (default: 10ms)
         min_note: Minimum MIDI note number (default: A0 = 21)
         max_note: Maximum MIDI note number (default: C8 = 108)
+        notes_bins_per_semitone: Bins per semitone for notes (default: 1)
+        contours_bins_per_semitone: Bins per semitone for contours (default: 3)
     
     Returns:
-        Tuple of (note_labels, onset_labels, contour_labels) as numpy arrays
+        Tuple of (notes_indices, notes_values, onsets_indices, onsets_values, 
+                  contours_indices, contours_values, notes_onsets_shape, contours_shape)
     """
     try:
         import pretty_midi
@@ -108,12 +114,14 @@ def create_note_labels(midi_path: str, duration: float, hop_size: float = 0.01,
     
     # Calculate time frames
     n_frames = int(np.ceil(duration / hop_size))
-    n_pitches = max_note - min_note + 1
+    n_semitones = max_note - min_note + 1
+    n_freq_bins_notes = n_semitones * notes_bins_per_semitone  # 88 * 1 = 88
+    n_freq_bins_contours = n_semitones * contours_bins_per_semitone  # 88 * 3 = 264
     
-    # Initialize labels
-    note_labels = np.zeros((n_frames, n_pitches), dtype=np.float32)
-    onset_labels = np.zeros((n_frames, n_pitches), dtype=np.float32)
-    contour_labels = np.zeros((n_frames, n_pitches), dtype=np.float32)
+    # Use dictionaries to store sparse data
+    notes_dict = {}  # (time, freq) -> value
+    onsets_dict = {}  # (time, freq) -> value
+    contours_dict = {}  # (time, freq) -> value
     
     # Process all notes from all instruments
     for instrument in midi_data.instruments:
@@ -127,7 +135,15 @@ def create_note_labels(midi_path: str, duration: float, hop_size: float = 0.01,
             if pitch < min_note or pitch > max_note:
                 continue
             
-            pitch_idx = pitch - min_note
+            # Calculate frequency bin index for notes (1 bin per semitone)
+            semitone_idx = pitch - min_note
+            note_freq_idx = semitone_idx * notes_bins_per_semitone
+            
+            # For contours, we use finer resolution (3 bins per semitone)
+            # Use the center bin of the 3 bins for each semitone
+            contour_freq_idx = semitone_idx * contours_bins_per_semitone + (contours_bins_per_semitone // 2)
+            
+            velocity = note.velocity / 127.0  # Normalize velocity to [0, 1]
             
             # Calculate frame indices
             start_frame = int(note.start / hop_size)
@@ -137,79 +153,123 @@ def create_note_labels(midi_path: str, duration: float, hop_size: float = 0.01,
             start_frame = max(0, min(start_frame, n_frames - 1))
             end_frame = max(0, min(end_frame, n_frames - 1))
             
-            # Set note active for duration
-            note_labels[start_frame:end_frame + 1, pitch_idx] = 1.0
+            # Set note active for duration (using notes resolution)
+            for frame in range(start_frame, end_frame + 1):
+                notes_dict[(frame, note_freq_idx)] = velocity
+                onsets_dict[(start_frame, note_freq_idx)] = velocity  # Only at start
             
-            # Set onset
-            onset_labels[start_frame, pitch_idx] = 1.0
-            
-            # Set contour (simplified - same as note for now)
-            contour_labels[start_frame:end_frame + 1, pitch_idx] = 1.0
+            # Set contour active for duration (using contours resolution)
+            for frame in range(start_frame, end_frame + 1):
+                # Set the center bin and optionally neighboring bins for smoother contours
+                contours_dict[(frame, contour_freq_idx)] = velocity
+                # Optionally add neighboring bins with lower intensity for smoother contours
+                if contours_bins_per_semitone == 3:
+                    if contour_freq_idx > 0:
+                        contours_dict[(frame, contour_freq_idx - 1)] = velocity * 0.5
+                    if contour_freq_idx < n_freq_bins_contours - 1:
+                        contours_dict[(frame, contour_freq_idx + 1)] = velocity * 0.5
     
-    return note_labels, onset_labels, contour_labels
+    # Convert to sparse format (indices and values)
+    notes_indices = list(notes_dict.keys())
+    notes_values = list(notes_dict.values())
+    
+    onsets_indices = list(onsets_dict.keys())
+    onsets_values = list(onsets_dict.values())
+    
+    contours_indices = list(contours_dict.keys())
+    contours_values = list(contours_dict.values())
+    
+    notes_onsets_shape = (n_frames, n_freq_bins_notes)  # (172, 88)
+    contours_shape = (n_frames, n_freq_bins_contours)    # (172, 264)
+    
+    return (notes_indices, notes_values, onsets_indices, onsets_values,
+            contours_indices, contours_values, notes_onsets_shape, contours_shape)
 
 
-def process_audio(audio_path: str, target_sr: int = 22050) -> Tuple[np.ndarray, float]:
+def process_audio(audio_path: str, target_sr: int = 22050, target_channels: int = 1) -> Tuple[str, float]:
     """
-    Load and process audio file
+    Load and process audio file, convert to WAV format if needed
     
     Args:
         audio_path: Path to audio file
         target_sr: Target sample rate
+        target_channels: Target number of channels (1=mono, 2=stereo)
     
     Returns:
-        Tuple of (audio_data, duration)
+        Tuple of (wav_file_path, duration)
     """
     try:
         import librosa
+        import soundfile as sf
     except ImportError:
-        logger.error("librosa not installed. Run: pip install librosa")
+        logger.error("librosa and soundfile not installed. Run: pip install librosa soundfile")
         sys.exit(1)
     
     try:
         # Load audio
-        audio, sr = librosa.load(audio_path, sr=target_sr, mono=True)
+        audio, sr = librosa.load(audio_path, sr=target_sr, mono=(target_channels == 1))
         duration = len(audio) / sr
         
-        return audio, duration
+        # Create temporary WAV file
+        import tempfile
+        temp_wav = tempfile.NamedTemporaryFile(suffix='.wav', delete=False)
+        temp_wav_path = temp_wav.name
+        temp_wav.close()
+        
+        # Save as WAV with correct format
+        sf.write(temp_wav_path, audio, target_sr)
+        
+        return temp_wav_path, duration
     except Exception as e:
         logger.error(f"Error loading audio file {audio_path}: {e}")
         raise
 
 
-def to_tfrecord(track_id: str, audio_path: str, midi_path: str, 
-                note_labels: np.ndarray, onset_labels: np.ndarray, 
-                contour_labels: np.ndarray, duration: float) -> tf.train.Example:
+def to_tfrecord(file_id: str, source: str, audio_wav_path: str,
+                notes_indices: List[Tuple[int, int]], notes_values: List[float],
+                onsets_indices: List[Tuple[int, int]], onsets_values: List[float],
+                contours_indices: List[Tuple[int, int]], contours_values: List[float],
+                notes_onsets_shape: Tuple[int, int], contours_shape: Tuple[int, int]) -> tf.train.Example:
     """
-    Convert track data to TFRecord Example
+    Convert track data to TFRecord Example in Basic Pitch format
     
     Args:
-        track_id: Unique track identifier
-        audio_path: Path to audio file
-        midi_path: Path to MIDI file
-        note_labels: Note activation labels
-        onset_labels: Note onset labels
-        contour_labels: Contour labels
-        duration: Audio duration in seconds
+        file_id: Unique track identifier
+        source: Source dataset name (e.g., "maestro")
+        audio_wav_path: Path to WAV audio file
+        notes_indices: List of (time, freq) tuples for notes
+        notes_values: List of values for notes
+        onsets_indices: List of (time, freq) tuples for onsets
+        onsets_values: List of values for onsets
+        contours_indices: List of (time, freq) tuples for contours
+        contours_values: List of values for contours
+        notes_onsets_shape: Shape tuple (n_frames, n_pitches)
+        contours_shape: Shape tuple (n_frames, n_pitches)
     
     Returns:
         tf.train.Example
     """
-    # Read audio file as bytes
-    with open(audio_path, 'rb') as f:
-        audio_bytes = f.read()
+    # Read WAV file as bytes
+    with open(audio_wav_path, 'rb') as f:
+        encoded_wav = f.read()
     
-    # Create feature dictionary
+    # Helper function to create bytes feature
+    def bytes_feature(value):
+        return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+    
+    # Create feature dictionary matching Basic Pitch format
     feature = {
-        'track_id': tf.train.Feature(bytes_list=tf.train.BytesList(value=[track_id.encode('utf-8')])),
-        'audio': tf.train.Feature(bytes_list=tf.train.BytesList(value=[audio_bytes])),
-        'note_labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[note_labels.tobytes()])),
-        'onset_labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[onset_labels.tobytes()])),
-        'contour_labels': tf.train.Feature(bytes_list=tf.train.BytesList(value=[contour_labels.tobytes()])),
-        'note_shape': tf.train.Feature(int64_list=tf.train.Int64List(value=note_labels.shape)),
-        'onset_shape': tf.train.Feature(int64_list=tf.train.Int64List(value=onset_labels.shape)),
-        'contour_shape': tf.train.Feature(int64_list=tf.train.Int64List(value=contour_labels.shape)),
-        'duration': tf.train.Feature(float_list=tf.train.FloatList(value=[duration])),
+        'file_id': bytes_feature(file_id.encode('utf-8')),
+        'source': bytes_feature(source.encode('utf-8')),
+        'audio_wav': bytes_feature(encoded_wav),
+        'notes_indices': bytes_feature(tf.io.serialize_tensor(np.array(notes_indices, np.int64)).numpy()),
+        'notes_values': bytes_feature(tf.io.serialize_tensor(np.array(notes_values, np.float32)).numpy()),
+        'onsets_indices': bytes_feature(tf.io.serialize_tensor(np.array(onsets_indices, np.int64)).numpy()),
+        'onsets_values': bytes_feature(tf.io.serialize_tensor(np.array(onsets_values, np.float32)).numpy()),
+        'contours_indices': bytes_feature(tf.io.serialize_tensor(np.array(contours_indices, np.int64)).numpy()),
+        'contours_values': bytes_feature(tf.io.serialize_tensor(np.array(contours_values, np.float32)).numpy()),
+        'notes_onsets_shape': bytes_feature(tf.io.serialize_tensor(np.array(notes_onsets_shape, np.int64)).numpy()),
+        'contours_shape': bytes_feature(tf.io.serialize_tensor(np.array(contours_shape, np.int64)).numpy()),
     }
     
     return tf.train.Example(features=tf.train.Features(feature=feature))
@@ -237,28 +297,35 @@ def process_track(track: dict, output_dir: str, hop_size: float = 0.01,
     
     logger.info(f"Processing: {track_id}")
     
+    temp_wav_path = None
     try:
-        # Load audio
-        audio, duration = process_audio(audio_path, target_sr)
+        # Load and convert audio to WAV
+        temp_wav_path, duration = process_audio(audio_path, target_sr, target_channels=1)
         
         # Skip tracks longer than max_duration
         if duration > max_duration:
             logger.info(f"Skipping {track_id}: duration {duration:.1f}s exceeds {max_duration}s")
+            if temp_wav_path and os.path.exists(temp_wav_path):
+                os.unlink(temp_wav_path)
             return False
         
-        # Create labels from MIDI
-        note_labels, onset_labels, contour_labels = create_note_labels(
+        # Create labels from MIDI (now returns sparse format)
+        (notes_indices, notes_values, onsets_indices, onsets_values,
+         contours_indices, contours_values, notes_onsets_shape, contours_shape) = create_note_labels(
             midi_path, duration, hop_size
         )
         
-        # Create TFRecord example
+        # Create TFRecord example in Basic Pitch format
         example = to_tfrecord(
-            track_id, audio_path, midi_path,
-            note_labels, onset_labels, contour_labels, duration
+            track_id, "maestro", temp_wav_path,
+            notes_indices, notes_values,
+            onsets_indices, onsets_values,
+            contours_indices, contours_values,
+            notes_onsets_shape, contours_shape
         )
         
         # Write to TFRecord file
-        output_path = Path(output_dir) / split
+        output_path = Path(output_dir) / "maestro" / "splits" / split
         output_path.mkdir(parents=True, exist_ok=True)
         
         # Create a unique filename for this track
@@ -269,12 +336,25 @@ def process_track(track: dict, output_dir: str, hop_size: float = 0.01,
             writer.write(example.SerializeToString())
         
         logger.info(f"✓ Successfully processed: {track_id} -> {tfrecord_path}")
+        
+        # Clean up temp WAV file
+        if temp_wav_path and os.path.exists(temp_wav_path):
+            os.unlink(temp_wav_path)
+        
         return True
         
     except Exception as e:
         logger.error(f"✗ Error processing {track_id}: {e}")
         import traceback
         traceback.print_exc()
+        
+        # Clean up temp WAV file on error
+        if temp_wav_path and os.path.exists(temp_wav_path):
+            try:
+                os.unlink(temp_wav_path)
+            except:
+                pass
+        
         return False
 
 
@@ -339,7 +419,7 @@ def main():
     logger.info(f"Max duration: {args.max_duration}s")
     
     # Setup libraries
-    librosa, pretty_midi = setup_audio_processing()
+    librosa, pretty_midi, soundfile = setup_audio_processing()
     
     # Create output directory
     os.makedirs(args.destination, exist_ok=True)
