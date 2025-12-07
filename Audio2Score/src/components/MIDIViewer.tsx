@@ -14,6 +14,7 @@ import FallingNotes from './FallingNotes';
 import AudioManager from '../utils/AudioManager';
 import { MIDIParser } from '../utils/midiParser';
 import { MIDIViewerProps, MIDIData } from '../types/midi';
+import { usePlayback } from '../context/PlaybackContext';
 
 export interface MIDIViewerHandle {
   stopPlayback: () => void;
@@ -32,6 +33,7 @@ const MIDIViewer = forwardRef<MIDIViewerHandle, MIDIViewerProps>((props, ref) =>
     showControls = true,
     height = 500,
     authToken,
+    playerId = 'default-midi-viewer',
   } = props;
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -45,6 +47,9 @@ const MIDIViewer = forwardRef<MIDIViewerHandle, MIDIViewerProps>((props, ref) =>
   const [volume, setVolume] = useState<number>(0.5); // 預設音量 50%
   const playedNotesRef = useRef<Set<string>>(new Set()); // 追蹤已播放的音符（使用唯一ID）
 
+  // 獲取播放控制 context
+  const { registerPlayer, unregisterPlayer, notifyPlaybackStart } = usePlayback();
+
   // 暴露方法給父組件
   useImperativeHandle(ref, () => ({
     stopPlayback: () => {
@@ -53,6 +58,21 @@ const MIDIViewer = forwardRef<MIDIViewerHandle, MIDIViewerProps>((props, ref) =>
     },
     getCurrentVolume: () => volume,
   }));
+
+  // 註冊播放器到全局控制
+  useEffect(() => {
+    registerPlayer(playerId, () => {
+      // 當其他播放器開始播放時，此回調會被調用
+      if (isPlaying) {
+        console.log(`🛑 [MIDIViewer ${playerId}] 被其他播放器中斷`);
+        handleStop();
+      }
+    });
+
+    return () => {
+      unregisterPlayer(playerId);
+    };
+  }, [playerId, isPlaying]);
 
   // 初始化時同步音量（從 AudioManager 獲取當前音量）
   useEffect(() => {
@@ -172,6 +192,10 @@ const MIDIViewer = forwardRef<MIDIViewerHandle, MIDIViewerProps>((props, ref) =>
         cancelAnimationFrame(animationRef.current);
       }
     } else {
+      // 通知其他播放器停止
+      console.log(`▶️ [MIDIViewer ${playerId}] 開始播放，通知其他播放器停止`);
+      notifyPlaybackStart(playerId);
+      
       setIsPlaying(true);
       startTimeRef.current = Date.now() - (currentTime * 1000) / speed;
       

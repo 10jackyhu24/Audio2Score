@@ -50,6 +50,7 @@ export const RecordScreen = () => {
   // ✅ NEW: 追蹤 MIDIViewer 實例和音量設置
   const midiViewerRef = useRef<MIDIViewerHandle>(null);
   const userVolumeRef = useRef<number>(0.5); // 保存用戶設置的音量
+  const playerId = 'record-screen'; // 播放器ID
 
   // 保存到圖書館
   const saveToLibrary = async (uploadResult: any) => {
@@ -654,6 +655,7 @@ export const RecordScreen = () => {
           <View style={styles.midiViewerWrapper}>
             <MIDIViewer
               ref={midiViewerRef}
+              playerId={playerId}
               midiData={midiData ?? undefined}
               midiUrl={convertedMidiUrl ?? undefined}
               autoPlay={false}
