@@ -89,3 +89,5 @@ logs/
 # 訓練模型
 # ==========================================
 *.tfrecord
+checkpoints/
+tensorboard/
