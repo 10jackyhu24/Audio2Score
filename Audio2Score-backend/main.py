@@ -176,6 +176,7 @@ if __name__ == "__main__":
     print(f"   GET  http://127.0.0.1:{settings.PORT}/api/auth/me")
     print("=" * 50)
     
+    
     uvicorn.run(
         "main:app",
         host="0.0.0.0",  # 改為 0.0.0.0 以支援外部連線（ngrok）

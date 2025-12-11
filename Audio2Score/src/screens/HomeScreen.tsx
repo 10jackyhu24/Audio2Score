@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
-
+//test
 export const HomeScreen = () => {
   const { user, logout } = useAuth();
   const { colors } = useTheme();
