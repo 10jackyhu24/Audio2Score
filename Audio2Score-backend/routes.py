@@ -4,7 +4,7 @@ API 路由 - Audio2Score Backend
 """
 import os
 import uuid
-from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, File, UploadFile
+from fastapi import APIRouter, HTTPException, status, Request, Depends, Header, File, UploadFile, Form
 from typing import Optional
 import datetime
 from pathlib import Path
@@ -302,17 +302,38 @@ async def get_current_user(user = Depends(get_current_user_from_token)):
 # 創建專門處理上傳的路由
 upload_router = APIRouter(prefix="/api/upload", tags=["File Upload"])
 
+@upload_router.get("/models")
+async def get_models():
+    """
+    獲取所有可用的模型列表
+    """
+    try:
+        models = music_tool.get_available_models()
+        print(f"🔵 [模型列表] 找到 {len(models)} 個可用模型")
+        return {"models": models}
+    except Exception as e:
+        print(f"❌ [模型列表] 錯誤: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"獲取模型列表失敗: {str(e)}"}
+        )
+
 @upload_router.post("")
 async def upload_file(
     file: UploadFile = File(...),
+    model_path: Optional[str] = Form(None),
     user = Depends(get_current_user_from_token)
 ):
     """
     處理文件上傳 - 安全版本，每個使用者有獨立目錄
+    支援選擇不同的模型進行轉換
     """
     try:
         print("🔵 [上傳] 開始處理檔案上傳...")
         print(f"🔵 [上傳] 使用者: {user['username']} (ID: {user['id']})")
+        print(f"🔵 [上傳] 選擇的模型: {model_path if model_path else 'Basic Pitch (預訓練)'}")
         print("REQ-DEBUG datetime ->", datetime, type(datetime), "has timezone:", hasattr(datetime, 'timezone'))
 
         # 基本檢查
@@ -367,8 +388,8 @@ async def upload_file(
         print(f"✅ 開始預測處理檔案: {unique_filename}")
         
         try:
-            # 轉換檔案
-            music_tool.wav_to_midi(str(file_path), str(user_upload_dir))
+            # 轉換檔案，使用指定的模型
+            music_tool.wav_to_midi(str(file_path), str(user_upload_dir), model_path)
             
             # 檢查是否成功產生 MIDI 檔案
             midi_filename = f"{Path(unique_filename).stem}_basic_pitch.mid"
