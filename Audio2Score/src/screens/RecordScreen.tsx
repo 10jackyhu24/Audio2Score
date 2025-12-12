@@ -5,6 +5,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Button } from '../components/Button';
 import { API_URL as AUTH_API_URL, getStoredToken } from '../services/authService';
+import AudioManager from '../utils/AudioManager';
 
 // ✅ NEW: theme + font size
 import { useTheme } from '../context/ThemeContext';
@@ -12,7 +13,7 @@ import { useFontSize } from '../context/FontSizeContext';
 import { FONT_SIZES } from '../constants/theme';
 
 // ✅ NEW: 引入 MIDIViewer 和類型
-import MIDIViewer from '../components/MIDIViewer';
+import MIDIViewer, { MIDIViewerHandle } from '../components/MIDIViewer';
 import type { MIDIData as MIDIDataType } from '../types/midi';
 import { ProgressBar } from '../components/ProgressBar';
 
@@ -58,6 +59,11 @@ export const RecordScreen = () => {
   // ✅ NEW: use theme + font scaling
   const { colors } = useTheme();
   const { scale } = useFontSize();
+  
+  // ✅ NEW: 追蹤 MIDIViewer 實例和音量設置
+  const midiViewerRef = useRef<MIDIViewerHandle>(null);
+  const userVolumeRef = useRef<number>(0.5); // 保存用戶設置的音量
+  const playerId = 'record-screen'; // 播放器ID
 
   // ✅ NEW: 載入可用的模型列表
   useEffect(() => {
@@ -185,6 +191,16 @@ export const RecordScreen = () => {
         });
       }
 
+      // ✅ 在選擇新檔案前，先停止之前的播放
+      console.log('🛑 [RecordScreen] 選擇新檔案，停止之前的音訊播放');
+      if (midiViewerRef.current) {
+        const currentVolume = midiViewerRef.current.getCurrentVolume();
+        userVolumeRef.current = currentVolume; // 保存用戶音量設置
+        console.log(`💾 [RecordScreen] 保存用戶音量設置: ${(currentVolume * 100).toFixed(0)}%`);
+        midiViewerRef.current.stopPlayback();
+      }
+      AudioManager.stopAll();
+      
       setFile({
         uri: asset.uri,
         name: asset.name ?? 'upload',
@@ -351,6 +367,16 @@ export const RecordScreen = () => {
     }
 
     try {
+      // ✅ 在上傳新檔案前，先停止之前的播放
+      console.log('🛑 [RecordScreen] 開始上傳，停止之前的音訊播放');
+      if (midiViewerRef.current) {
+        const currentVolume = midiViewerRef.current.getCurrentVolume();
+        userVolumeRef.current = currentVolume; // 保存用戶音量設置
+        console.log(`💾 [RecordScreen] 保存用戶音量設置: ${(currentVolume * 100).toFixed(0)}%`);
+        midiViewerRef.current.stopPlayback();
+      }
+      AudioManager.stopAll();
+      
       setIsUploading(true);
       setMidiData(null);
       setConversionStatus('idle');
@@ -778,13 +804,20 @@ export const RecordScreen = () => {
           
           <View style={styles.midiViewerWrapper}>
             <MIDIViewer
+              ref={midiViewerRef}
+              playerId={playerId}
               midiData={midiData ?? undefined}
               midiUrl={convertedMidiUrl ?? undefined}
               autoPlay={false}
               speed={1}
               height={400}
               showControls={true}
-              onLoadComplete={(data: any) => console.log('MIDI 加載完成', data)}
+              onLoadComplete={(data: any) => {
+                console.log('MIDI 加載完成', data);
+                // 恢復用戶設置的音量
+                console.log(`🔊 [RecordScreen] 恢復用戶音量設置: ${(userVolumeRef.current * 100).toFixed(0)}%`);
+                AudioManager.setVolume(userVolumeRef.current);
+              }}
               onPlaybackEnd={() => console.log('播放結束')}
             />
           </View>
