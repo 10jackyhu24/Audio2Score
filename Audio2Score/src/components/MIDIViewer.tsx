@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { 
   View, 
   Text, 
@@ -14,19 +14,27 @@ import FallingNotes from './FallingNotes';
 import AudioManager from '../utils/AudioManager';
 import { MIDIParser } from '../utils/midiParser';
 import { MIDIViewerProps, MIDIData } from '../types/midi';
+import { usePlayback } from '../context/PlaybackContext';
 
-const MIDIViewer: React.FC<MIDIViewerProps> = ({ 
-  midiFilePath,
-  midiUrl,
-  midiData,
-  autoPlay = false,
-  speed = 1,
-  onLoadComplete,
-  onPlaybackEnd,
-  showControls = true,
-  height = 500,
-  authToken,
-}) => {
+export interface MIDIViewerHandle {
+  stopPlayback: () => void;
+  getCurrentVolume: () => number;
+}
+
+const MIDIViewer = forwardRef<MIDIViewerHandle, MIDIViewerProps>((props, ref) => {
+  const {
+    midiFilePath,
+    midiUrl,
+    midiData,
+    autoPlay = false,
+    speed = 1,
+    onLoadComplete,
+    onPlaybackEnd,
+    showControls = true,
+    height = 500,
+    authToken,
+    playerId = 'default-midi-viewer',
+  } = props;
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [activeNotes, setActiveNotes] = useState<string[]>([]);
@@ -39,9 +47,38 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
   const [volume, setVolume] = useState<number>(0.5); // 預設音量 50%
   const playedNotesRef = useRef<Set<string>>(new Set()); // 追蹤已播放的音符（使用唯一ID）
 
-  // 初始化音量設置
+  // 獲取播放控制 context
+  const { registerPlayer, unregisterPlayer, notifyPlaybackStart } = usePlayback();
+
+  // 暴露方法給父組件
+  useImperativeHandle(ref, () => ({
+    stopPlayback: () => {
+      console.log('🛑 [MIDIViewer] 收到停止播放指令');
+      handleStop();
+    },
+    getCurrentVolume: () => volume,
+  }));
+
+  // 註冊播放器到全局控制
   useEffect(() => {
-    AudioManager.setVolume(0.5);
+    registerPlayer(playerId, () => {
+      // 當其他播放器開始播放時，此回調會被調用
+      if (isPlaying) {
+        console.log(`🛑 [MIDIViewer ${playerId}] 被其他播放器中斷`);
+        handleStop();
+      }
+    });
+
+    return () => {
+      unregisterPlayer(playerId);
+    };
+  }, [playerId, isPlaying]);
+
+  // 初始化時同步音量（從 AudioManager 獲取當前音量）
+  useEffect(() => {
+    const currentVolume = AudioManager.getVolume();
+    setVolume(currentVolume);
+    console.log(`🔊 [MIDIViewer] 初始化音量: ${(currentVolume * 100).toFixed(0)}%`);
   }, []);
 
   // 加載 MIDI 文件
@@ -57,6 +94,17 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
       handlePlayPause();
     }
   }, [autoPlay, notes]);
+
+  // 組件卸載時停止播放
+  useEffect(() => {
+    return () => {
+      console.log('🔄 [MIDIViewer] 組件卸載，停止所有播放');
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      AudioManager.stopAll();
+    };
+  }, []);
 
   const loadMIDI = async (): Promise<void> => {
     try {
@@ -144,6 +192,10 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     } else {
+      // 通知其他播放器停止
+      console.log(`▶️ [MIDIViewer ${playerId}] 開始播放，通知其他播放器停止`);
+      notifyPlaybackStart(playerId);
+      
       setIsPlaying(true);
       startTimeRef.current = Date.now() - (currentTime * 1000) / speed;
       
@@ -363,7 +415,7 @@ const MIDIViewer: React.FC<MIDIViewerProps> = ({
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -25,6 +25,7 @@ export interface MIDIViewerProps {
   showControls?: boolean;
   height?: number;
   authToken?: string | null;
+  playerId?: string; // 播放器唯一標識符，用於跨畫面播放控制
 }
 
 export interface FallingNotesProps {
