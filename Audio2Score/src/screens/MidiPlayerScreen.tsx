@@ -29,6 +29,7 @@ export const MidiPlayerScreen = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
+  const playerId = 'midi-player-screen'; // 播放器ID
 
   // 獲取認證token
   useEffect(() => {
@@ -256,6 +257,7 @@ export const MidiPlayerScreen = () => {
             
             <View style={styles.midiViewerContainer}>
               <MIDIViewer
+                playerId={playerId}
                 midiUrl={selectedFile}
                 autoPlay={false}
                 speed={playbackSpeed}

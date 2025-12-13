@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Platform, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Button } from '../components/Button';
 import { API_URL as AUTH_API_URL, getStoredToken } from '../services/authService';
+import AudioManager from '../utils/AudioManager';
 
 // ✅ NEW: theme + font size
 import { useTheme } from '../context/ThemeContext';
@@ -12,7 +13,7 @@ import { useFontSize } from '../context/FontSizeContext';
 import { FONT_SIZES } from '../constants/theme';
 
 // ✅ NEW: 引入 MIDIViewer 和類型
-import MIDIViewer from '../components/MIDIViewer';
+import MIDIViewer, { MIDIViewerHandle } from '../components/MIDIViewer';
 import type { MIDIData as MIDIDataType } from '../types/midi';
 import { ProgressBar } from '../components/ProgressBar';
 
@@ -23,6 +24,13 @@ type PickedFile = {
   mimeType?: string | null;
 };
 
+// 模型類型
+type ModelInfo = {
+  name: string;
+  path: string;
+  is_pretrained: boolean;
+};
+
 // 使用全域共用的 API_URL（從 authService 匯入）
 const API_URL = AUTH_API_URL; // 已包含 /api
 const SERVER_UPLOAD_URL = `${API_URL}/upload`;
@@ -31,6 +39,12 @@ console.log('🔵 [上傳] 上傳 URL:', SERVER_UPLOAD_URL);
 export const RecordScreen = () => {
   const [file, setFile] = useState<PickedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  
+  // ✅ NEW: 模型相關狀態
+  const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [showModelPicker, setShowModelPicker] = useState(false);
   
   // ✅ NEW: 添加 MIDI 相關狀態
   const [midiData, setMidiData] = useState<MIDIDataType | null>(null);
@@ -45,6 +59,43 @@ export const RecordScreen = () => {
   // ✅ NEW: use theme + font scaling
   const { colors } = useTheme();
   const { scale } = useFontSize();
+  
+  // ✅ NEW: 追蹤 MIDIViewer 實例和音量設置
+  const midiViewerRef = useRef<MIDIViewerHandle>(null);
+  const userVolumeRef = useRef<number>(0.5); // 保存用戶設置的音量
+  const playerId = 'record-screen'; // 播放器ID
+
+  // ✅ NEW: 載入可用的模型列表
+  useEffect(() => {
+    fetchAvailableModels();
+  }, []);
+
+  const fetchAvailableModels = async () => {
+    try {
+      setIsLoadingModels(true);
+      const response = await fetch(`${API_URL}/upload/models`, {
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableModels(data.models || []);
+        // 預設選擇第一個模型（Basic Pitch）
+        if (data.models && data.models.length > 0) {
+          setSelectedModel(data.models[0].path);
+        }
+        console.log('✅ [模型] 載入模型列表:', data.models);
+      } else {
+        console.warn('⚠️ [模型] 無法載入模型列表');
+      }
+    } catch (error) {
+      console.error('❌ [模型] 載入模型列表錯誤:', error);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   // 保存到圖書館
   const saveToLibrary = async (uploadResult: any) => {
@@ -140,6 +191,16 @@ export const RecordScreen = () => {
         });
       }
 
+      // ✅ 在選擇新檔案前，先停止之前的播放
+      console.log('🛑 [RecordScreen] 選擇新檔案，停止之前的音訊播放');
+      if (midiViewerRef.current) {
+        const currentVolume = midiViewerRef.current.getCurrentVolume();
+        userVolumeRef.current = currentVolume; // 保存用戶音量設置
+        console.log(`💾 [RecordScreen] 保存用戶音量設置: ${(currentVolume * 100).toFixed(0)}%`);
+        midiViewerRef.current.stopPlayback();
+      }
+      AudioManager.stopAll();
+      
       setFile({
         uri: asset.uri,
         name: asset.name ?? 'upload',
@@ -306,6 +367,16 @@ export const RecordScreen = () => {
     }
 
     try {
+      // ✅ 在上傳新檔案前，先停止之前的播放
+      console.log('🛑 [RecordScreen] 開始上傳，停止之前的音訊播放');
+      if (midiViewerRef.current) {
+        const currentVolume = midiViewerRef.current.getCurrentVolume();
+        userVolumeRef.current = currentVolume; // 保存用戶音量設置
+        console.log(`💾 [RecordScreen] 保存用戶音量設置: ${(currentVolume * 100).toFixed(0)}%`);
+        midiViewerRef.current.stopPlayback();
+      }
+      AudioManager.stopAll();
+      
       setIsUploading(true);
       setMidiData(null);
       setConversionStatus('idle');
@@ -358,9 +429,16 @@ export const RecordScreen = () => {
         } catch (e) {
           (formData as any).append('file', blob, file.name);
         }
+        
+        // ✅ NEW: 添加選擇的模型
+        if (selectedModel && selectedModel !== 'basic-pitch') {
+          formData.append('model_path', selectedModel);
+        }
+        
         setUploadProgress(30);
 
         console.log('🔵 [上傳] 使用 XMLHttpRequest 上傳到:', SERVER_UPLOAD_URL);
+        console.log('🔵 [上傳] 使用模型:', selectedModel || 'Basic Pitch (預訓練)');
         
         // 使用 XMLHttpRequest 追蹤真實上傳進度
         const result = await uploadWithProgress(SERVER_UPLOAD_URL, formData, token, (progress) => {
@@ -387,9 +465,16 @@ export const RecordScreen = () => {
           name: file.name,
           type: file.mimeType || 'audio/mpeg',
         } as any);
+        
+        // ✅ NEW: 添加選擇的模型
+        if (selectedModel && selectedModel !== 'basic-pitch') {
+          formData.append('model_path', selectedModel);
+        }
+        
         setUploadProgress(30);
 
         console.log('🔵 [上傳] 發送請求到:', SERVER_UPLOAD_URL);
+        console.log('🔵 [上傳] 使用模型:', selectedModel || 'Basic Pitch (預訓練)');
 
         // 模擬上傳進度
         const progressInterval = setInterval(() => {
@@ -593,6 +678,97 @@ export const RecordScreen = () => {
 
       <View style={styles.actions}>
         <Button title="選擇檔案" onPress={pickFile} />
+        
+        {/* ✅ NEW: 模型選擇下拉選單 */}
+        <View style={{ height: 12 }} />
+        <View style={styles.modelSelectorContainer}>
+          <Text
+            style={[
+              styles.modelLabel,
+              {
+                color: colors.textSecondary,
+                fontSize: FONT_SIZES.sm * scale,
+              },
+            ]}
+          >
+            選擇轉換模型：
+          </Text>
+          
+          <TouchableOpacity
+            style={[
+              styles.modelSelector,
+              { 
+                backgroundColor: colors.card ?? 'rgba(0,0,0,0.04)',
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={() => setShowModelPicker(!showModelPicker)}
+            disabled={isLoadingModels}
+          >
+            <Text
+              style={[
+                styles.modelSelectorText,
+                {
+                  color: colors.text,
+                  fontSize: FONT_SIZES.md * scale,
+                },
+              ]}
+            >
+              {isLoadingModels
+                ? '載入中...'
+                : availableModels.find(m => m.path === selectedModel)?.name || '選擇模型'}
+            </Text>
+            <Text style={[styles.modelSelectorArrow, { color: colors.primary }]}>
+              {showModelPicker ? '▲' : '▼'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* 下拉選單選項 */}
+          {showModelPicker && (
+            <View
+              style={[
+                styles.modelOptions,
+                { backgroundColor: colors.card ?? 'rgba(255,255,255,0.95)' },
+              ]}
+            >
+              {availableModels.map((model) => (
+                <TouchableOpacity
+                  key={model.path}
+                  style={[
+                    styles.modelOption,
+                    selectedModel === model.path && {
+                      backgroundColor: colors.primary + '20',
+                    },
+                  ]}
+                  onPress={() => {
+                    setSelectedModel(model.path);
+                    setShowModelPicker(false);
+                    console.log('🔵 [模型] 選擇模型:', model.name);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.modelOptionText,
+                      {
+                        color: selectedModel === model.path ? colors.primary : colors.text,
+                        fontSize: FONT_SIZES.md * scale,
+                      },
+                    ]}
+                  >
+                    {selectedModel === model.path && '✓ '}
+                    {model.name}
+                  </Text>
+                  {model.is_pretrained && (
+                    <View style={styles.pretrainedBadge}>
+                      <Text style={styles.pretrainedBadgeText}>預訓練</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+        
         <View style={{ height: 12 }} />
         <Button
           title={isUploading ? '上傳中…' : '上傳'}
@@ -628,13 +804,20 @@ export const RecordScreen = () => {
           
           <View style={styles.midiViewerWrapper}>
             <MIDIViewer
+              ref={midiViewerRef}
+              playerId={playerId}
               midiData={midiData ?? undefined}
               midiUrl={convertedMidiUrl ?? undefined}
               autoPlay={false}
               speed={1}
               height={400}
               showControls={true}
-              onLoadComplete={(data: any) => console.log('MIDI 加載完成', data)}
+              onLoadComplete={(data: any) => {
+                console.log('MIDI 加載完成', data);
+                // 恢復用戶設置的音量
+                console.log(`🔊 [RecordScreen] 恢復用戶音量設置: ${(userVolumeRef.current * 100).toFixed(0)}%`);
+                AudioManager.setVolume(userVolumeRef.current);
+              }}
               onPlaybackEnd={() => console.log('播放結束')}
             />
           </View>
@@ -696,6 +879,75 @@ const styles = StyleSheet.create({
   value: { fontWeight: '600' },
   placeholder: { textAlign: 'center' },
   actions: { alignSelf: 'center', width: '100%', maxWidth: 320 },
+  
+  // ✅ NEW: 模型選擇器樣式
+  modelSelectorContainer: {
+    width: '100%',
+  },
+  modelLabel: {
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  modelSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    minHeight: 48,
+  },
+  modelSelectorText: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  modelSelectorArrow: {
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  modelOptions: {
+    borderRadius: 8,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    maxHeight: 300,
+    overflow: 'scroll',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  modelOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modelOptionText: {
+    flex: 1,
+    fontWeight: '500',
+  },
+  pretrainedBadge: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginLeft: 8,
+  },
+  pretrainedBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+  },
   
   // ✅ NEW: 轉換狀態樣式
   statusContainer: {

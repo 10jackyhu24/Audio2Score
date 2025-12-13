@@ -4,6 +4,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { FontSizeProvider } from './src/context/FontSizeContext';
+import { PlaybackProvider } from './src/context/PlaybackContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import SplashScreen from './src/screens/SplashScreen';
 
@@ -33,8 +34,10 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <FontSizeProvider>
-          <StatusBar style="auto" />
-          <AppNavigator />
+          <PlaybackProvider>
+            <StatusBar style="auto" />
+            <AppNavigator />
+          </PlaybackProvider>
         </FontSizeProvider>
       </ThemeProvider>
     </AuthProvider>
