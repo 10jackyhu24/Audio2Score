@@ -1,3 +1,4 @@
+// src/screens/LibraryScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -12,6 +13,8 @@ import {
   RefreshControl,
   Modal,
   Platform,
+  ImageBackground,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
@@ -19,6 +22,8 @@ import { useFontSize } from '../context/FontSizeContext';
 import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
 import { API_URL, getStoredToken } from '../services/authService';
 import { useNavigation } from '@react-navigation/native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type FileRecord = {
   id: number;
@@ -53,6 +58,7 @@ export const LibraryScreen = () => {
 
   useEffect(() => {
     loadLibrary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sortBy, filterType, searchQuery]);
 
   const onRefresh = async () => {
@@ -143,14 +149,13 @@ export const LibraryScreen = () => {
       Alert.alert('提示', '此檔案沒有 MIDI 格式');
       return;
     }
-    
+
     const midiUrl = `${API_URL}/files/${file.midi_filename}`;
     console.log('🎵 播放 MIDI:', midiUrl);
-    
-    // 導覽到 MIDI 播放器頁面
-    (navigation as any).navigate('MidiPlayer', { 
+
+    (navigation as any).navigate('MidiPlayer', {
       midiUrl,
-      filename: file.original_filename 
+      filename: file.original_filename,
     });
   };
 
@@ -186,8 +191,7 @@ export const LibraryScreen = () => {
         const token = await getStoredToken();
         if (!token) return;
 
-        // 批次刪除
-        const deletePromises = Array.from(selectedForDelete).map(fileId =>
+        const deletePromises = Array.from(selectedForDelete).map((fileId) =>
           fetch(`${API_URL}/upload/library/${fileId}`, {
             method: 'DELETE',
             headers: {
@@ -199,12 +203,11 @@ export const LibraryScreen = () => {
 
         await Promise.all(deletePromises);
 
-        // 更新檔案列表
-        setFiles(prevFiles => prevFiles.filter(file => !selectedForDelete.has(file.id)));
+        setFiles((prevFiles) => prevFiles.filter((file) => !selectedForDelete.has(file.id)));
         const count = selectedForDelete.size;
         setSelectedForDelete(new Set());
         setDeleteMode(false);
-        
+
         if (Platform.OS === 'web') {
           // @ts-ignore - web platform specific
           global.alert?.(`已刪除 ${count} 個檔案`) || Alert.alert('成功', `已刪除 ${count} 個檔案`);
@@ -288,234 +291,287 @@ export const LibraryScreen = () => {
     ).padStart(2, '0')}`;
   };
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      {/* 搜尋欄 */}
-      <View style={[styles.searchContainer, { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' }]}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          style={[styles.searchInput, { color: colors.text, fontSize: FONT_SIZES.md * scale }]}
-          placeholder="搜尋檔案名稱..."
-          placeholderTextColor={isDarkMode ? '#666' : '#999'}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery !== '' && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Text style={styles.clearButton}>✕</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+  const isLargeScreen = SCREEN_WIDTH >= 768 || Platform.OS === 'web';
 
-      {/* 篩選和排序 */}
-      <View style={styles.filterBar}>
-        <View style={styles.filterButtons}>
-          {!deleteMode && (
-            <>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  filterType === 'all' && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => setFilterType('all')}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    { 
-                      color: filterType === 'all' ? 'white' : colors.text, 
-                      fontSize: FONT_SIZES.sm * scale,
-                    },
-                  ]}
-                >
-                  全部
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.filterButton,
-                  filterType === 'favorites' && { backgroundColor: colors.primary },
-                ]}
-                onPress={() => setFilterType('favorites')}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    {
-                      color: filterType === 'favorites' ? 'white' : colors.text,
-                      fontSize: FONT_SIZES.sm * scale,
-                    },
-                  ]}
-                >
-                  ⭐ 收藏
-                </Text>
-              </TouchableOpacity>
-            </>
-          )}
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              deleteMode && { backgroundColor: '#e74c3c' },
-            ]}
-            onPress={toggleDeleteMode}
-          >
-            <Text
-              style={[
-                styles.filterText,
-                {
-                  color: deleteMode ? 'white' : colors.text,
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
-              {deleteMode ? '✕ 取消' : '🗑️ 刪除模式'}
-            </Text>
-          </TouchableOpacity>
-          {deleteMode && (
-            <TouchableOpacity
-              style={[
-                styles.filterButton,
-                { backgroundColor: '#c0392b' },
-              ]}
-              onPress={confirmBatchDelete}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  {
-                    color: 'white',
-                    fontSize: FONT_SIZES.sm * scale,
-                  },
-                ]}
-              >
-                ✓ 確認刪除
-              </Text>
+  return (
+    <ImageBackground
+      source={require('../../assets/wp5907462.webp')}
+      style={styles.background}
+      resizeMode="cover"
+    >
+      <View style={styles.backdrop} />
+
+      <SafeAreaView
+        style={[styles.overlay, isLargeScreen && styles.overlayLarge]}
+        edges={['top', 'bottom']}
+      >
+        {/* 搜尋欄 */}
+        <View
+          style={[
+            styles.searchContainer,
+            { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+          ]}
+        >
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text, fontSize: FONT_SIZES.md * scale }]}
+            placeholder="搜尋檔案名稱..."
+            placeholderTextColor={isDarkMode ? '#666' : '#999'}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery !== '' && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Text style={styles.clearButton}>✕</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        <TouchableOpacity
-          style={[styles.sortButton, { backgroundColor: isDarkMode ? '#3b3b3b' : 'white' }]}
-          onPress={() => setSortBy(sortBy === 'date' ? 'name' : 'date')}
-        >
-          <Text style={[styles.sortText, { color: colors.text, fontSize: FONT_SIZES.sm * scale }]}>
-            {sortBy === 'date' ? '時間 ↓' : '名稱'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* 檔案列表 */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : files.length === 0 ? (
-        <ScrollView
-          contentContainerStyle={styles.emptyContainer}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-          }
-        >
-          <Text style={[styles.emptyText, { color: isDarkMode ? '#666' : '#999' }]}>
-            {searchQuery ? '沒有符合的檔案' : '尚無檔案記錄'}
-          </Text>
-        </ScrollView>
-      ) : (
-        <ScrollView
-          style={styles.fileList}
-          contentContainerStyle={styles.fileListContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
-          }
-        >
-          {files
-            .filter(file => !deleteMode || !file.is_favorited)
-            .map((file) => (
-            <View
-              key={file.id}
-              style={[styles.fileCard, { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' }]}
-            >
-              <View style={styles.fileHeader}>
-                <Text style={styles.fileDate}>{formatDate(file.upload_date)}</Text>
-              </View>
-
-              <View style={styles.fileInfo}>
+        {/* 篩選和排序 */}
+        <View style={styles.filterBar}>
+          <View style={styles.filterButtons}>
+            {!deleteMode && (
+              <>
                 <TouchableOpacity
-                  style={styles.fileIconContainer}
-                  onPress={() => deleteMode ? toggleSelectForDelete(file.id) : playMidiFile(file)}
+                  style={[
+                    styles.filterButton,
+                    filterType === 'all' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setFilterType('all')}
                 >
-                  {deleteMode ? (
-                    <View style={[
-                      styles.selectCircle,
-                      selectedForDelete.has(file.id) && styles.selectCircleSelected
-                    ]}>
-                      {selectedForDelete.has(file.id) && (
-                        <Text style={styles.checkmark}>✓</Text>
+                  <Text
+                    style={[
+                      styles.filterText,
+                      {
+                        color: filterType === 'all' ? 'white' : colors.text,
+                        fontSize: FONT_SIZES.sm * scale,
+                      },
+                    ]}
+                  >
+                    全部
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.filterButton,
+                    filterType === 'favorites' && { backgroundColor: colors.primary },
+                  ]}
+                  onPress={() => setFilterType('favorites')}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      {
+                        color: filterType === 'favorites' ? 'white' : colors.text,
+                        fontSize: FONT_SIZES.sm * scale,
+                      },
+                    ]}
+                  >
+                    ⭐ 收藏
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[styles.filterButton, deleteMode && { backgroundColor: '#e74c3c' }]}
+              onPress={toggleDeleteMode}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  { color: deleteMode ? 'white' : colors.text, fontSize: FONT_SIZES.sm * scale },
+                ]}
+              >
+                {deleteMode ? '✕ 取消' : '🗑️ 刪除模式'}
+              </Text>
+            </TouchableOpacity>
+
+            {deleteMode && (
+              <TouchableOpacity style={[styles.filterButton, { backgroundColor: '#c0392b' }]} onPress={confirmBatchDelete}>
+                <Text style={[styles.filterText, { color: 'white', fontSize: FONT_SIZES.sm * scale }]}>
+                  ✓ 確認刪除
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.sortButton,
+              { backgroundColor: isDarkMode ? '#3b3b3b' : 'white' },
+            ]}
+            onPress={() => setSortBy(sortBy === 'date' ? 'name' : 'date')}
+          >
+            <Text style={[styles.sortText, { color: colors.text, fontSize: FONT_SIZES.sm * scale }]}>
+              {sortBy === 'date' ? '時間 ↓' : '名稱'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* 檔案列表 */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : files.length === 0 ? (
+          <ScrollView
+            contentContainerStyle={styles.emptyContainer}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+            }
+          >
+            <Text style={[styles.emptyText, { color: isDarkMode ? '#666' : '#999' }]}>
+              {searchQuery ? '沒有符合的檔案' : '尚無檔案記錄'}
+            </Text>
+          </ScrollView>
+        ) : (
+          <ScrollView
+            style={styles.fileList}
+            contentContainerStyle={styles.fileListContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
+            }
+          >
+            {files
+              .filter((file) => !deleteMode || !file.is_favorited)
+              .map((file) => (
+                <View
+                  key={file.id}
+                  style={[
+                    styles.fileCard,
+                    { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+                  ]}
+                >
+                  <View style={styles.fileHeader}>
+                    <Text style={styles.fileDate}>{formatDate(file.upload_date)}</Text>
+                  </View>
+
+                  <View style={styles.fileInfo}>
+                    <TouchableOpacity
+                      style={styles.fileIconContainer}
+                      onPress={() => (deleteMode ? toggleSelectForDelete(file.id) : playMidiFile(file))}
+                    >
+                      {deleteMode ? (
+                        <View
+                          style={[
+                            styles.selectCircle,
+                            selectedForDelete.has(file.id) && styles.selectCircleSelected,
+                          ]}
+                        >
+                          {selectedForDelete.has(file.id) && (
+                            <Text style={styles.checkmark}>✓</Text>
+                          )}
+                        </View>
+                      ) : (
+                        <Text style={styles.fileIcon}>🎵</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <View style={styles.fileDetails}>
+                      <Text
+                        style={[
+                          styles.fileName,
+                          { color: colors.text, fontSize: FONT_SIZES.md * scale },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {file.original_filename}
+                      </Text>
+
+                      {/* (optional metadata line, logic unchanged) */}
+                      <Text style={[styles.metaText, { color: isDarkMode ? '#aaa' : '#666' }]}>
+                        {formatFileSize(file.file_size)}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => toggleFavorite(file.id)}
+                      style={styles.favoriteButton}
+                    >
+                      <Text style={styles.favoriteIcon}>{file.is_favorited ? '❤️' : '🤍'}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.fileActions}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.downloadButton]}
+                      onPress={() =>
+                        setDownloadMenuVisible(downloadMenuVisible === file.id ? null : file.id)
+                      }
+                    >
+                      <Text style={styles.actionButtonText}>下載 ⬇</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 下載選單 */}
+                  {downloadMenuVisible === file.id && (
+                    <View
+                      style={[
+                        styles.downloadMenu,
+                        { backgroundColor: isDarkMode ? '#1a1a1a' : '#fff' },
+                      ]}
+                    >
+                      {file.wav_filename && (
+                        <TouchableOpacity
+                          style={styles.downloadMenuItem}
+                          onPress={() => downloadFile(file.wav_filename, 'WAV')}
+                        >
+                          <Text style={[styles.downloadMenuText, { color: '#2ecc71' }]}>
+                            💾 下載 WAV
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      {file.midi_filename && (
+                        <TouchableOpacity
+                          style={styles.downloadMenuItem}
+                          onPress={() => downloadFile(file.midi_filename, 'MIDI')}
+                        >
+                          <Text style={[styles.downloadMenuText, { color: '#3498db' }]}>
+                            🎹 下載 MIDI
+                          </Text>
+                        </TouchableOpacity>
                       )}
                     </View>
-                  ) : (
-                    <Text style={styles.fileIcon}>🎵</Text>
-                  )}
-                </TouchableOpacity>
-                <View style={styles.fileDetails}>
-                  <Text
-                    style={[styles.fileName, { color: colors.text, fontSize: FONT_SIZES.md * scale }]}
-                    numberOfLines={1}
-                  >
-                    {file.original_filename}
-                  </Text>
-                </View>
-                <TouchableOpacity onPress={() => toggleFavorite(file.id)} style={styles.favoriteButton}>
-                  <Text style={styles.favoriteIcon}>{file.is_favorited ? '❤️' : '🤍'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.fileActions}>
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.downloadButton]}
-                  onPress={() => setDownloadMenuVisible(downloadMenuVisible === file.id ? null : file.id)}
-                >
-                  <Text style={styles.actionButtonText}>下載 ⬇</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* 下載選單 */}
-              {downloadMenuVisible === file.id && (
-                <View style={[styles.downloadMenu, { backgroundColor: isDarkMode ? '#1a1a1a' : '#fff' }]}>
-                  {file.wav_filename && (
-                    <TouchableOpacity
-                      style={styles.downloadMenuItem}
-                      onPress={() => downloadFile(file.wav_filename, 'WAV')}
-                    >
-                      <Text style={[styles.downloadMenuText, { color: '#2ecc71' }]}>💾 下載 WAV</Text>
-                    </TouchableOpacity>
-                  )}
-                  {file.midi_filename && (
-                    <TouchableOpacity
-                      style={styles.downloadMenuItem}
-                      onPress={() => downloadFile(file.midi_filename, 'MIDI')}
-                    >
-                      <Text style={[styles.downloadMenuText, { color: '#3498db' }]}>🎹 下載 MIDI</Text>
-                    </TouchableOpacity>
                   )}
                 </View>
-              )}
-            </View>
-          ))}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+              ))}
+          </ScrollView>
+        )}
+      </SafeAreaView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  background: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+
+  overlay: {
+    flex: 1,
+    width: '100%',
+    padding: SPACING.lg,
+  },
+  overlayLarge: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 720,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: SPACING.md,
+    marginBottom: SPACING.md,
     padding: SPACING.sm,
     borderRadius: 8,
     borderWidth: 1,
@@ -534,16 +590,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
   },
+
   filterBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
     marginBottom: SPACING.md,
   },
   filterButtons: {
     flexDirection: 'row',
     gap: SPACING.sm,
+    flexWrap: 'wrap',
   },
   filterButton: {
     paddingHorizontal: SPACING.md,
@@ -555,6 +612,7 @@ const styles = StyleSheet.create({
   filterText: {
     fontWeight: '600',
   },
+
   sortButton: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -565,6 +623,7 @@ const styles = StyleSheet.create({
   sortText: {
     fontWeight: '600',
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -574,16 +633,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 60,
   },
   emptyText: {
     fontSize: 16,
   },
+
   fileList: {
     flex: 1,
   },
   fileListContent: {
-    padding: SPACING.md,
+    paddingBottom: 40,
   },
+
   fileCard: {
     borderRadius: 8,
     padding: SPACING.md,
@@ -591,6 +653,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+
   fileHeader: {
     marginBottom: SPACING.sm,
   },
@@ -599,6 +662,7 @@ const styles = StyleSheet.create({
     color: '#3498db',
     fontWeight: '600',
   },
+
   fileInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -616,12 +680,18 @@ const styles = StyleSheet.create({
   fileName: {
     fontWeight: '600',
   },
+  metaText: {
+    marginTop: 4,
+    fontSize: 12,
+  },
+
   favoriteButton: {
     padding: SPACING.xs,
   },
   favoriteIcon: {
     fontSize: 24,
   },
+
   fileActions: {
     flexDirection: 'row',
     gap: SPACING.sm,
@@ -635,17 +705,12 @@ const styles = StyleSheet.create({
   downloadButton: {
     backgroundColor: '#9b59b6',
   },
-  midiButton: {
-    backgroundColor: '#3498db',
-  },
-  wavButton: {
-    backgroundColor: '#2ecc71',
-  },
   actionButtonText: {
     color: 'white',
     fontWeight: '600',
     fontSize: 12,
   },
+
   downloadMenu: {
     marginTop: SPACING.sm,
     borderRadius: 8,
@@ -662,6 +727,7 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.md,
     fontWeight: '600',
   },
+
   selectCircle: {
     width: 28,
     height: 28,
@@ -682,3 +748,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+export default LibraryScreen;
