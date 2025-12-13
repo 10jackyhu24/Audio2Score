@@ -1,34 +1,41 @@
 // src/screens/MidiPlayerScreen.tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  ImageBackground,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import MIDIViewer from '../components/MIDIViewer';
 import { useTheme } from '../context/ThemeContext';
 import { useFontSize } from '../context/FontSizeContext';
-import { COLORS, SPACING, FONT_SIZES } from '../constants/theme';
+import { SPACING, FONT_SIZES } from '../constants/theme';
 import { MIDIData } from '../types/midi';
 import { useRoute } from '@react-navigation/native';
 import { getStoredToken } from '../services/authService';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export const MidiPlayerScreen = () => {
   const { colors, isDarkMode } = useTheme();
   const { scale } = useFontSize();
   const route = useRoute();
+
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [midiData, setMidiData] = useState<MIDIData | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
+
   const playerId = 'midi-player-screen'; // 播放器ID
 
   // 獲取認證token
@@ -62,7 +69,7 @@ export const MidiPlayerScreen = () => {
   const handlePickDocument = async () => {
     try {
       setIsUploading(true);
-      
+
       const result = await DocumentPicker.getDocumentAsync({
         type: ['audio/midi', 'audio/x-midi', '.mid', '.midi'],
         copyToCacheDirectory: true,
@@ -79,7 +86,7 @@ export const MidiPlayerScreen = () => {
         setFileName(file.name);
         Alert.alert('成功', `已選擇文件：${file.name}`);
       }
-      
+
       setIsUploading(false);
     } catch (error) {
       setIsUploading(false);
@@ -94,153 +101,49 @@ export const MidiPlayerScreen = () => {
     setMidiData(null);
   };
 
+  const isLargeScreen = SCREEN_WIDTH >= 768 || Platform.OS === 'web';
+
   return (
-    <SafeAreaView 
-      style={[styles.container, { backgroundColor: colors.background }]} 
-      edges={['top', 'bottom']}
+    <ImageBackground
+      source={require('../../assets/wp5907462.webp')}
+      style={styles.background}
+      resizeMode="cover"
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* 標題區域 */}
-        <View style={styles.header}>
-          <Text
-            style={[
-              styles.title,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.xxl * scale,
-              },
-            ]}
-          >
-            🎹 MIDI 播放器
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
-                fontSize: FONT_SIZES.md * scale,
-              },
-            ]}
-          >
-            選擇一個 MIDI 文件開始播放
-          </Text>
-        </View>
+      <View style={styles.backdrop} />
 
-        {/* 文件上傳區域 */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.lg * scale,
-              },
-            ]}
-          >
-            上傳 MIDI 文件
-          </Text>
-          
-          <Text
-            style={[
-              styles.hint,
-              {
-                color: isDarkMode ? 'rgba(255,255,255,0.6)' : '#888',
-                fontSize: FONT_SIZES.sm * scale,
-              },
-            ]}
-          >
-            支援 .mid 和 .midi 格式
-          </Text>
-
-          {selectedFile ? (
-            <View style={styles.uploadedFileContainer}>
-              <View
-                style={[
-                  styles.uploadedFile,
-                  {
-                    backgroundColor: isDarkMode ? '#3b3b3b' : 'white',
-                    borderColor: colors.primary,
-                  },
-                ]}
-              >
-                <View style={styles.fileInfo}>
-                  <Text style={styles.fileIcon}>🎵</Text>
-                  <Text
-                    style={[
-                      styles.uploadedFileName,
-                      {
-                        color: colors.text,
-                        fontSize: FONT_SIZES.md * scale,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {fileName || '已選擇文件'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={[
-                    styles.clearButton,
-                    { backgroundColor: isDarkMode ? '#4b4b4b' : '#f0f0f0' },
-                  ]}
-                  onPress={handleClearFile}
-                >
-                  <Text
-                    style={[
-                      styles.clearButtonText,
-                      { color: colors.text, fontSize: FONT_SIZES.sm * scale },
-                    ]}
-                  >
-                    ✕
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity
+      <SafeAreaView style={[styles.overlay, isLargeScreen && styles.overlayLarge]} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* 標題區域 */}
+          <View style={styles.header}>
+            <Text
               style={[
-                styles.uploadButton,
+                styles.title,
                 {
-                  backgroundColor: isDarkMode ? '#3b3b3b' : 'white',
-                  borderColor: isDarkMode ? '#4b4b4b' : '#ddd',
+                  color: 'white',
+                  fontSize: FONT_SIZES.xxl * scale,
                 },
               ]}
-              onPress={handlePickDocument}
-              disabled={isUploading}
             >
-              {isUploading ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <>
-                  <Text style={styles.uploadIcon}>📂</Text>
-                  <Text
-                    style={[
-                      styles.uploadButtonText,
-                      {
-                        color: colors.text,
-                        fontSize: FONT_SIZES.md * scale,
-                      },
-                    ]}
-                  >
-                    點擊選擇 MIDI 文件
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
+              🎹 MIDI 播放器
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  color: isDarkMode ? 'rgba(255,255,255,0.75)' : 'rgba(255,255,255,0.75)',
+                  fontSize: FONT_SIZES.md * scale,
+                },
+              ]}
+            >
+              選擇一個 MIDI 文件開始播放
+            </Text>
+          </View>
 
-        {/* MIDI 播放器 */}
-        {selectedFile ? (
+          {/* 文件上傳區域 */}
           <View
             style={[
               styles.card,
-              { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+              { backgroundColor: isDarkMode ? 'rgba(43,43,43,0.92)' : 'rgba(247,247,247,0.92)' },
             ]}
           >
             <Text
@@ -252,124 +155,260 @@ export const MidiPlayerScreen = () => {
                 },
               ]}
             >
-              播放視圖
+              上傳 MIDI 文件
             </Text>
-            
-            <View style={styles.midiViewerContainer}>
-              <MIDIViewer
-                playerId={playerId}
-                midiUrl={selectedFile}
-                autoPlay={false}
-                speed={playbackSpeed}
-                onLoadComplete={handleLoadComplete}
-                onPlaybackEnd={handlePlaybackEnd}
-                showControls={true}
-                height={500}
-                authToken={authToken}
-              />
-            </View>
+
+            <Text
+              style={[
+                styles.hint,
+                {
+                  color: isDarkMode ? 'rgba(255,255,255,0.6)' : '#888',
+                  fontSize: FONT_SIZES.sm * scale,
+                },
+              ]}
+            >
+              支援 .mid 和 .midi 格式
+            </Text>
+
+            {selectedFile ? (
+              <View style={styles.uploadedFileContainer}>
+                <View
+                  style={[
+                    styles.uploadedFile,
+                    {
+                      backgroundColor: isDarkMode ? '#3b3b3b' : 'white',
+                      borderColor: colors.primary,
+                    },
+                  ]}
+                >
+                  <View style={styles.fileInfo}>
+                    <Text style={styles.fileIcon}>🎵</Text>
+                    <Text
+                      style={[
+                        styles.uploadedFileName,
+                        {
+                          color: colors.text,
+                          fontSize: FONT_SIZES.md * scale,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {fileName || '已選擇文件'}
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.clearButton,
+                      { backgroundColor: isDarkMode ? '#4b4b4b' : '#f0f0f0' },
+                    ]}
+                    onPress={handleClearFile}
+                  >
+                    <Text
+                      style={[
+                        styles.clearButtonText,
+                        { color: colors.text, fontSize: FONT_SIZES.sm * scale },
+                      ]}
+                    >
+                      ✕
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.uploadButton,
+                  {
+                    backgroundColor: isDarkMode ? '#3b3b3b' : 'white',
+                    borderColor: isDarkMode ? '#4b4b4b' : '#ddd',
+                  },
+                ]}
+                onPress={handlePickDocument}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Text style={styles.uploadIcon}>📂</Text>
+                    <Text
+                      style={[
+                        styles.uploadButtonText,
+                        {
+                          color: colors.text,
+                          fontSize: FONT_SIZES.md * scale,
+                        },
+                      ]}
+                    >
+                      點擊選擇 MIDI 文件
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
-        ) : (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-            ]}
-          >
-            <View style={styles.emptyState}>
+
+          {/* MIDI 播放器 */}
+          {selectedFile ? (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: isDarkMode ? 'rgba(43,43,43,0.92)' : 'rgba(247,247,247,0.92)' },
+              ]}
+            >
               <Text
                 style={[
-                  styles.emptyText,
+                  styles.sectionTitle,
                   {
-                    color: isDarkMode ? 'rgba(255,255,255,0.5)' : '#999',
-                    fontSize: FONT_SIZES.md * scale,
+                    color: colors.text,
+                    fontSize: FONT_SIZES.lg * scale,
                   },
                 ]}
               >
-                請選擇一個文件開始播放
+                播放視圖
+              </Text>
+
+              <View style={styles.midiViewerContainer}>
+                <MIDIViewer
+                  playerId={playerId}
+                  midiUrl={selectedFile}
+                  autoPlay={false}
+                  speed={playbackSpeed}
+                  onLoadComplete={handleLoadComplete}
+                  onPlaybackEnd={handlePlaybackEnd}
+                  showControls={true}
+                  height={500}
+                  authToken={authToken}
+                />
+              </View>
+            </View>
+          ) : (
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: isDarkMode ? 'rgba(43,43,43,0.92)' : 'rgba(247,247,247,0.92)' },
+              ]}
+            >
+              <View style={styles.emptyState}>
+                <Text
+                  style={[
+                    styles.emptyText,
+                    {
+                      color: isDarkMode ? 'rgba(255,255,255,0.65)' : '#999',
+                      fontSize: FONT_SIZES.md * scale,
+                    },
+                  ]}
+                >
+                  請選擇一個文件開始播放
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* 說明區域 */}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: isDarkMode ? 'rgba(43,43,43,0.92)' : 'rgba(247,247,247,0.92)' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: colors.text,
+                  fontSize: FONT_SIZES.lg * scale,
+                },
+              ]}
+            >
+              ℹ️ 使用說明
+            </Text>
+
+            <View style={styles.infoList}>
+              <Text
+                style={[
+                  styles.infoItem,
+                  {
+                    color: isDarkMode ? 'rgba(255,255,255,0.85)' : '#555',
+                    fontSize: FONT_SIZES.sm * scale,
+                  },
+                ]}
+              >
+                • 點擊上方按鈕上傳 MIDI 文件（支援 .mid 和 .midi 格式）
+              </Text>
+              <Text
+                style={[
+                  styles.infoItem,
+                  {
+                    color: isDarkMode ? 'rgba(255,255,255,0.85)' : '#555',
+                    fontSize: FONT_SIZES.sm * scale,
+                  },
+                ]}
+              >
+                • 使用播放控制按鈕控制播放、暫停和進度
+              </Text>
+              <Text
+                style={[
+                  styles.infoItem,
+                  {
+                    color: isDarkMode ? 'rgba(255,255,255,0.85)' : '#555',
+                    fontSize: FONT_SIZES.sm * scale,
+                  },
+                ]}
+              >
+                • 觀察下落的音符與鋼琴鍵盤互動
               </Text>
             </View>
           </View>
-        )}
-
-        {/* 說明區域 */}
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-          ]}
-        >
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.text,
-                fontSize: FONT_SIZES.lg * scale,
-              },
-            ]}
-          >
-            ℹ️ 使用說明
-          </Text>
-          
-          <View style={styles.infoList}>
-            <Text
-              style={[
-                styles.infoItem,
-                {
-                  color: isDarkMode ? 'rgba(255,255,255,0.8)' : '#555',
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
-              • 點擊上方按鈕上傳 MIDI 文件（支援 .mid 和 .midi 格式）
-            </Text>
-            <Text
-              style={[
-                styles.infoItem,
-                {
-                  color: isDarkMode ? 'rgba(255,255,255,0.8)' : '#555',
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
-              • 使用播放控制按鈕控制播放、暫停和進度
-            </Text>
-            <Text
-              style={[
-                styles.infoItem,
-                {
-                  color: isDarkMode ? 'rgba(255,255,255,0.8)' : '#555',
-                  fontSize: FONT_SIZES.sm * scale,
-                },
-              ]}
-            >
-              • 觀察下落的音符與鋼琴鍵盤互動
-            </Text>
-          </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  background: {
     flex: 1,
+    width: '100%',
+    height: '100%',
   },
-  scrollContent: {
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+
+  overlay: {
+    flex: 1,
+    width: '100%',
     padding: SPACING.lg,
+  },
+  overlayLarge: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 720,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+
+  scrollContent: {
     paddingBottom: SPACING.xl * 2,
   },
+
   header: {
     marginBottom: SPACING.lg,
+    alignItems: 'center',
   },
   title: {
     fontWeight: '700',
     marginBottom: SPACING.xs,
+    textAlign: 'center',
   },
   subtitle: {
     fontWeight: '400',
+    textAlign: 'center',
   },
+
   card: {
     padding: SPACING.md,
     borderRadius: 12,
@@ -383,6 +422,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginBottom: SPACING.md,
   },
+
   uploadButton: {
     padding: SPACING.lg,
     borderRadius: 12,
@@ -399,6 +439,7 @@ const styles = StyleSheet.create({
   uploadButtonText: {
     fontWeight: '500',
   },
+
   uploadedFileContainer: {
     marginTop: SPACING.sm,
   },
@@ -424,6 +465,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+
   clearButton: {
     width: 28,
     height: 28,
@@ -435,11 +477,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 20,
   },
+
   midiViewerContainer: {
     marginTop: SPACING.sm,
     borderRadius: 8,
     overflow: 'hidden',
   },
+
   emptyState: {
     paddingVertical: SPACING.xl * 2,
     alignItems: 'center',
@@ -449,6 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+
   infoList: {
     gap: SPACING.sm,
   },
