@@ -7,6 +7,7 @@ import {
   Switch,
   TouchableOpacity,
   ScrollView,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
@@ -26,192 +27,202 @@ export const SettingsScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: isDarkMode ? 'white' : '#222',
-              fontSize: FONT_SIZES.lg * scale,
-            },
-          ]}
-        >
-          外觀
-        </Text>
+    <ImageBackground
+      source={require('../../assets/wp5907462.webp')}
+      style={styles.background}
+      resizeMode="cover"
+    >
+      <View style={styles.backdrop} />
 
-        <View style={styles.row}>
-          <View style={styles.rowTextGroup}>
+      <SafeAreaView style={styles.overlay} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* 外觀 */}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+            ]}
+          >
             <Text
               style={[
-                styles.label,
+                styles.sectionTitle,
                 {
                   color: isDarkMode ? 'white' : '#222',
-                  fontSize: FONT_SIZES.md * scale,
+                  fontSize: FONT_SIZES.lg * scale,
                 },
               ]}
             >
-              深色模式
+              外觀
             </Text>
+
+            <View style={styles.row}>
+              <View style={styles.rowTextGroup}>
+                <Text
+                  style={[
+                    styles.label,
+                    {
+                      color: isDarkMode ? 'white' : '#222',
+                      fontSize: FONT_SIZES.md * scale,
+                    },
+                  ]}
+                >
+                  深色模式
+                </Text>
+                <Text
+                  style={[
+                    styles.labelHint,
+                    {
+                      color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
+                      fontSize: 12 * scale,
+                    },
+                  ]}
+                >
+                  在昏暗環境中讓畫面更舒適
+                </Text>
+              </View>
+              <Switch value={isDarkMode} onValueChange={toggleTheme} />
+            </View>
+          </View>
+
+          {/* 文字大小 */}
+          <View
+            style={[
+              styles.card,
+              { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: isDarkMode ? 'white' : '#222',
+                  fontSize: FONT_SIZES.lg * scale,
+                },
+              ]}
+            >
+              文字大小
+            </Text>
+
             <Text
               style={[
                 styles.labelHint,
                 {
                   color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
                   fontSize: 12 * scale,
+                  marginBottom: SPACING.sm,
                 },
               ]}
             >
-              在昏暗環境中讓畫面更舒適
+              調整整體文字比例
             </Text>
+
+            <View style={styles.fontRow}>
+              {fontOptions.map((option) => {
+                const active = scale === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[
+                      styles.fontButton,
+                      active && {
+                        backgroundColor: colors.primary,
+                        borderColor: colors.primary,
+                      },
+                    ]}
+                    onPress={() => setScale(option.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.fontButtonText,
+                        {
+                          color: active ? 'white' : isDarkMode ? 'white' : '#222',
+                          fontSize: FONT_SIZES.md * option.value,
+                        },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
-          <Switch value={isDarkMode} onValueChange={toggleTheme} />
-        </View>
-      </View>
 
-      {/* 文字大小 */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: isDarkMode ? 'white' : '#222',
-              fontSize: FONT_SIZES.lg * scale,
-            },
-          ]}
-        >
-          文字大小
-        </Text>
-
-        <Text
-          style={[
-            styles.labelHint,
-            {
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
-              fontSize: 12 * scale,
-              marginBottom: SPACING.sm,
-            },
-          ]}
-        >
-          調整整體文字比例
-        </Text>
-
-        <View style={styles.fontRow}>
-          {fontOptions.map(option => {
-            const active = scale === option.value;
-            return (
-              <TouchableOpacity
-                key={option.label}
-                style={[
-                  styles.fontButton,
-                  active && { backgroundColor: colors.primary, borderColor: colors.primary },
-                ]}
-                onPress={() => setScale(option.value)}
-              >
-                <Text
-                  style={[
-                    styles.fontButtonText,
-                    {
-                      color: active
-                        ? 'white'
-                        : isDarkMode
-                        ? 'white'
-                        : '#222',
-                      fontSize: FONT_SIZES.md * option.value,
-                    },
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* 帳號 */}
-      <View
-        style={[
-          styles.card,
-          { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
-        ]}
-      >
-        <Text
-          style={[
-            styles.sectionTitle,
-            {
-              color: isDarkMode ? 'white' : '#222',
-              fontSize: FONT_SIZES.lg * scale,
-            },
-          ]}
-        >
-          帳號
-        </Text>
-
-        <Text
-          style={[
-            styles.labelHint,
-            {
-              color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
-              fontSize: 12 * scale,
-              marginBottom: SPACING.sm,
-            },
-          ]}
-        >
-          登出後可以使用其他帳號重新登入
-        </Text>
-
-        <TouchableOpacity
-          style={[
-            styles.logoutButton,
-            { borderColor: colors.primary },
-          ]}
-          onPress={logout}
-        >
-          <Text
+          {/* 帳號 */}
+          <View
             style={[
-              styles.logoutText,
-              {
-                color: colors.primary,
-                fontSize: FONT_SIZES.md * scale,
-              },
+              styles.card,
+              { backgroundColor: isDarkMode ? '#2b2b2b' : '#f7f7f7' },
             ]}
           >
-            登出
-          </Text>
-        </TouchableOpacity>
-      </View>
-      </ScrollView>
-    </SafeAreaView>
+            <Text
+              style={[
+                styles.sectionTitle,
+                {
+                  color: isDarkMode ? 'white' : '#222',
+                  fontSize: FONT_SIZES.lg * scale,
+                },
+              ]}
+            >
+              帳號
+            </Text>
+
+            <Text
+              style={[
+                styles.labelHint,
+                {
+                  color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#666',
+                  fontSize: 12 * scale,
+                  marginBottom: SPACING.sm,
+                },
+              ]}
+            >
+              登出後可以使用其他帳號重新登入
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.logoutButton, { borderColor: colors.primary }]}
+              onPress={logout}
+            >
+              <Text
+                style={[
+                  styles.logoutText,
+                  {
+                    color: colors.primary,
+                    fontSize: FONT_SIZES.md * scale,
+                  },
+                ]}
+              >
+                登出
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  background: { flex: 1, width: '100%', height: '100%' },
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+
+  overlay: { flex: 1, width: '100%' },
+
   scrollContent: {
     padding: SPACING.lg,
     paddingBottom: SPACING.xl * 2,
   },
+
   header: {
     fontWeight: '700',
     marginBottom: SPACING.lg,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(0,0,0,0.05)',
   },
+
   sectionTitle: { fontWeight: '600', marginBottom: SPACING.sm },
+
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,11 +232,13 @@ const styles = StyleSheet.create({
   rowTextGroup: { flex: 1, paddingRight: SPACING.md },
   label: { fontWeight: '500', marginBottom: 2 },
   labelHint: { fontWeight: '400' },
+
   card: {
     padding: SPACING.md,
     borderRadius: 12,
     marginBottom: SPACING.md,
   },
+
   fontRow: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
   fontButton: {
     paddingVertical: SPACING.sm,
@@ -235,6 +248,7 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
   },
   fontButtonText: { fontWeight: '500' },
+
   logoutButton: {
     marginTop: SPACING.sm,
     paddingVertical: SPACING.sm,
@@ -243,6 +257,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   logoutText: { fontWeight: '600' },
+
   footerNote: { textAlign: 'center', marginTop: SPACING.md },
 });
 
