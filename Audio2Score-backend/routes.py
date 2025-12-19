@@ -363,8 +363,22 @@ async def upload_file(
                 content={"error": "檔案為空"}
             )
 
-        # 清理檔案名稱
-        safe_filename = sanitize_filename(file.filename)
+        # 保留原始檔案名稱（用於顯示）
+        original_filename = file.filename
+        
+        # 嘗試 URL 解碼檔名（處理前端可能傳來的編碼檔名）
+        try:
+            from urllib.parse import unquote
+            decoded_filename = unquote(original_filename)
+            # 如果解碼後不同，使用解碼後的檔名
+            if decoded_filename != original_filename:
+                print(f"🔵 [上傳] 解碼檔名: {original_filename} -> {decoded_filename}")
+                original_filename = decoded_filename
+        except Exception as e:
+            print(f"⚠️ [上傳] 解碼檔名失敗: {e}")
+        
+        # 清理檔案名稱（用於儲存）
+        safe_filename = sanitize_filename(original_filename)
         
         # 取得使用者專屬目錄
         user_upload_dir = get_user_upload_dir(user['username'])
@@ -381,7 +395,7 @@ async def upload_file(
         with open(file_path, "wb") as f:
             f.write(contents)
         
-        print(f"✅ [上傳] 收到檔案: {safe_filename} -> {unique_filename}, 大小: {file_size} bytes")
+        print(f"✅ [上傳] 收到檔案: {original_filename} (清理後: {safe_filename}) -> {unique_filename}, 大小: {file_size} bytes")
         print(f"✅ [上傳] 儲存路徑: {file_path}")
 
         # 轉換為 MIDI
@@ -402,7 +416,7 @@ async def upload_file(
                 return {
                     "status": "success",
                     "message": "檔案轉換成功",
-                    "original_filename": safe_filename,
+                    "original_filename": original_filename,  # 使用原始檔名
                     "saved_filename": unique_filename,
                     "midi_filename": midi_filename,
                     "size": file_size,

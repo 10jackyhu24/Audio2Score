@@ -173,8 +173,39 @@ export const RecordScreen = () => {
       const asset = res.assets?.[0];
       if (!asset) return;
 
+      // 從 URI 中提取真實檔名（如果 asset.name 是編碼的）
+      let displayName = asset.name ?? 'upload';
+      
+      // 嘗試多種方式解碼檔名
+      try {
+        // 檢查是否包含 % 編碼字符
+        if (displayName.includes('%')) {
+          // 嘗試完整解碼
+          let decodedName = displayName;
+          let previousName = '';
+          
+          // 持續解碼直到沒有變化（處理多重編碼）
+          while (decodedName !== previousName && decodedName.includes('%')) {
+            previousName = decodedName;
+            try {
+              decodedName = decodeURIComponent(decodedName);
+            } catch (e) {
+              // 如果解碼失敗，嘗試替換常見的編碼
+              decodedName = decodedName.replace(/%20/g, ' ');
+              break;
+            }
+          }
+          
+          displayName = decodedName;
+          console.log('✅ [檔案選擇] 解碼檔名成功:', displayName);
+        }
+      } catch (e) {
+        console.log('⚠️ [檔案選擇] 解碼檔名失敗，使用原始檔名:', e);
+      }
+
       console.log('🔵 [檔案選擇] 檔案資訊:', {
-        name: asset.name,
+        原始名稱: asset.name,
+        顯示名稱: displayName,
         mimeType: asset.mimeType,
         size: asset.size,
         uri: asset.uri,
@@ -182,7 +213,7 @@ export const RecordScreen = () => {
 
       let correctedMimeType = asset.mimeType;
       if (!correctedMimeType || correctedMimeType === 'text/plain') {
-        const extension = asset.name?.split('.').pop()?.toLowerCase();
+        const extension = displayName?.split('.').pop()?.toLowerCase();
         const mimeMap: { [key: string]: string } = {
           mp3: 'audio/mpeg',
           wav: 'audio/wav',
@@ -212,7 +243,7 @@ export const RecordScreen = () => {
 
       setFile({
         uri: asset.uri,
-        name: asset.name ?? 'upload',
+        name: displayName,  // 使用解碼後的檔名
         size: asset.size ?? null,
         mimeType: correctedMimeType,
       });
